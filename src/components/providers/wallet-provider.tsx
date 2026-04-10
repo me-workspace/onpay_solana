@@ -39,16 +39,23 @@ export function WalletProvider({ children }: { children: ReactNode }): React.JSX
     // During local development, print a compact summary so we can spot
     // surprising failures without the Next.js dev overlay screaming.
     if (process.env.NODE_ENV !== "production") {
-      const name =
-        error !== null && typeof error === "object" && "name" in error
-          ? String((error as { name: unknown }).name)
-          : "UnknownError";
-      const message =
-        error !== null && typeof error === "object" && "message" in error
-          ? String((error as { message: unknown }).message)
-          : String(error);
+      const obj = (error ?? {}) as Record<string, unknown>;
+      const name = typeof obj.name === "string" ? obj.name : "UnknownError";
+      const message = typeof obj.message === "string" ? obj.message : String(error);
+      const cause = obj.cause !== undefined ? obj.cause : obj.error;
+
+      const suggestion =
+        name === "WalletConnectionError" || name === "WalletNotSelectedError"
+          ? " (this is expected if you haven't approved OnPay in your wallet yet — just click Connect and accept the popup)"
+          : name === "WalletDisconnectedError"
+            ? " (wallet disconnected — this is fine, just reconnect)"
+            : "";
+
       // Intentional: developer console output only, never user-facing.
-      console.warn(`[wallet] ${name}: ${message}`);
+      console.warn(`[wallet] ${name}: ${message}${suggestion}`);
+      if (cause !== undefined) {
+        console.warn("[wallet] cause:", cause);
+      }
     }
     // In production we drop the error silently — the wallet extension
     // already surfaces user-actionable feedback.
