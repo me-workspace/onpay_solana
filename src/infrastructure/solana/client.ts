@@ -10,7 +10,7 @@
 import { Connection, PublicKey } from "@solana/web3.js";
 
 import type { AddressLookupTable, SolanaClient } from "@/application/ports/solana-client";
-import { serverEnv } from "@/config/env";
+import { serverEnv } from "@/config/env.server";
 import { domainError } from "@/domain/errors";
 import { err, ok, tryAsync, type Result } from "@/lib/result";
 

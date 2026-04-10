@@ -22,7 +22,7 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
-import { serverEnv } from "@/config/env";
+import { serverEnv } from "@/config/env.server";
 
 import * as schema from "./schema";
 

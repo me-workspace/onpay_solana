@@ -16,7 +16,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
 import { upsertMerchant } from "@/application/use-cases/upsert-merchant";
-import { serverEnv } from "@/config/env";
+import { serverEnv } from "@/config/env.server";
 import type { Merchant } from "@/domain/entities/merchant";
 import { getDb } from "@/infrastructure/db/client";
 import { createMerchantRepository } from "@/infrastructure/db/merchant-repo";

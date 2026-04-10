@@ -16,7 +16,8 @@ import { z } from "zod";
 
 import { systemClock } from "@/application/ports/clock";
 import { createInvoice } from "@/application/use-cases/create-invoice";
-import { publicEnv, serverEnv } from "@/config/env";
+import { publicEnv } from "@/config/env";
+import { serverEnv } from "@/config/env.server";
 import type { Invoice } from "@/domain/entities/invoice";
 import { parseWalletAddress } from "@/domain/value-objects/wallet-address";
 import { getDb } from "@/infrastructure/db/client";

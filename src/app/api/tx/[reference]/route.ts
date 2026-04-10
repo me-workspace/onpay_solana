@@ -22,7 +22,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
 import { buildPaymentTransaction } from "@/application/use-cases/build-payment-transaction";
-import { publicEnv, serverEnv } from "@/config/env";
+import { publicEnv } from "@/config/env";
+import { serverEnv } from "@/config/env.server";
 import { isInvoicePayable } from "@/domain/entities/invoice";
 import { parseInvoiceReference } from "@/domain/value-objects/reference";
 import { getDb } from "@/infrastructure/db/client";

@@ -24,7 +24,7 @@ import type {
   SwapQuote,
   SwapQuoter,
 } from "@/application/ports/swap-quoter";
-import { serverEnv } from "@/config/env";
+import { serverEnv } from "@/config/env.server";
 import { domainError, type DomainError } from "@/domain/errors";
 import { err, ok, tryAsync, type Result } from "@/lib/result";
 

@@ -22,7 +22,7 @@
 import pino from "pino";
 import type { LoggerOptions } from "pino";
 
-import { serverEnv } from "@/config/env";
+import { serverEnv } from "@/config/env.server";
 
 const isProduction = serverEnv.NODE_ENV === "production";
 

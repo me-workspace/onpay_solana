@@ -13,7 +13,8 @@
  */
 import { NextResponse } from "next/server";
 
-import { publicEnv, serverEnv } from "@/config/env";
+import { publicEnv } from "@/config/env";
+import { serverEnv } from "@/config/env.server";
 import { pingDatabase } from "@/infrastructure/db/client";
 import { createSolanaClient } from "@/infrastructure/solana/client";
 import { logger } from "@/lib/logger";
