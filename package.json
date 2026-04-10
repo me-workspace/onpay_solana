@@ -34,7 +34,7 @@
     "@solana/wallet-adapter-react": "0.15.36",
     "@solana/web3.js": "1.98.0",
     "drizzle-orm": "0.45.2",
-    "nanoid": "5.0.9",
+    "nanoid": "5.1.7",
     "next": "15.5.15",
     "pino": "9.6.0",
     "postgres": "3.4.5",
