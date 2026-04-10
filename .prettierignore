@@ -1,0 +1,16 @@
+.next
+node_modules
+out
+build
+dist
+coverage
+docs
+supabase
+package-lock.json
+*.lock
+*.min.js
+*.min.css
+*.pdf
+*.png
+*.jpg
+*.svg

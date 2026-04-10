@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # These are fake values just sufficient for module-load-time env validation.
+  # Real keys are injected only in deploy workflows.
+  NODE_ENV: test
+  NEXT_PUBLIC_SOLANA_CLUSTER: devnet
+  NEXT_PUBLIC_APP_URL: http://localhost:3000
+  SOLANA_RPC_URL: https://api.devnet.solana.com
+  JUPITER_API_URL: https://quote-api.jup.ag/v6
+  JUPITER_MAX_SLIPPAGE_BPS: "100"
+  DEFAULT_SETTLEMENT_MINT: 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU
+  LOG_LEVEL: warn
+  INVOICE_TTL_SECONDS: "600"
+
+jobs:
+  verify:
+    name: Typecheck · Lint · Test · Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Format check
+        run: npm run format:check
+
+      - name: Unit tests
+        run: npm run test
+
+      - name: Build
+        run: npm run build
+
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Audit (critical only)
+        # The only remaining "high" vulnerabilities are in `bigint-buffer`, a
+        # transitive dependency of @solana/web3.js and @solana/spl-token that
+        # is unfixable from our side. The issue is a buffer overflow in
+        # `toBigIntLE()` with untrusted input — not exploitable in OnPay's
+        # context because we never pass untrusted bytes to that function.
+        # This is tracked in docs/SECURITY.md. Fail only on critical.
+        run: npm audit --audit-level=critical

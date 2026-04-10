@@ -49,18 +49,18 @@ Either both steps succeed and the merchant receives USDC, or the whole transacti
 
 ## Tech stack
 
-| Layer | Stack |
-|---|---|
-| Chain | Solana (devnet + mainnet-beta) |
-| Payment spec | Solana Pay (Transaction Request) |
-| Swap | Jupiter v6 API |
-| Smart contract | Anchor (Rust) — optional for MVP |
-| Frontend | Next.js 15 (App Router) + TypeScript + Tailwind CSS + shadcn/ui |
-| Wallets | Phantom, Backpack, Solflare via `@solana/wallet-adapter` |
-| Database | Supabase (Postgres + RLS) |
-| Hosting | Vercel |
-| Testing | Vitest + Playwright |
-| CI/CD | GitHub Actions |
+| Layer          | Stack                                                           |
+| -------------- | --------------------------------------------------------------- |
+| Chain          | Solana (devnet + mainnet-beta)                                  |
+| Payment spec   | Solana Pay (Transaction Request)                                |
+| Swap           | Jupiter v6 API                                                  |
+| Smart contract | Anchor (Rust) — optional for MVP                                |
+| Frontend       | Next.js 15 (App Router) + TypeScript + Tailwind CSS + shadcn/ui |
+| Wallets        | Phantom, Backpack, Solflare via `@solana/wallet-adapter`        |
+| Database       | Supabase (Postgres + RLS)                                       |
+| Hosting        | Vercel                                                          |
+| Testing        | Vitest + Playwright                                             |
+| CI/CD          | GitHub Actions                                                  |
 
 **AI pair-programming tools (disclosed):** Claude Code, v0.dev, Colosseum Copilot.
 
@@ -119,14 +119,14 @@ See [`docs/PLAN.md`](docs/PLAN.md) for the full development plan.
 
 All project documentation lives in [`/docs`](./docs):
 
-| File | Description |
-|---|---|
-| [`MEMORY.md`](docs/MEMORY.md) | Project memory — identity, architecture, stack, decisions log, risks |
-| [`PRD.md`](docs/PRD.md) | Full product requirements document (English) |
-| [`PLAN.md`](docs/PLAN.md) | 5-week implementation plan with weekly milestones |
-| [`HACKATHON_SUBMISSION.md`](docs/HACKATHON_SUBMISSION.md) | Colosseum form answers |
-| [`WHITEPAPER.md`](docs/WHITEPAPER.md) | Comprehensive project document (business + technical) |
-| [`WHITEPAPER.pdf`](docs/WHITEPAPER.pdf) | Same whitepaper, PDF format |
+| File                                                      | Description                                                          |
+| --------------------------------------------------------- | -------------------------------------------------------------------- |
+| [`MEMORY.md`](docs/MEMORY.md)                             | Project memory — identity, architecture, stack, decisions log, risks |
+| [`PRD.md`](docs/PRD.md)                                   | Full product requirements document (English)                         |
+| [`PLAN.md`](docs/PLAN.md)                                 | 5-week implementation plan with weekly milestones                    |
+| [`HACKATHON_SUBMISSION.md`](docs/HACKATHON_SUBMISSION.md) | Colosseum form answers                                               |
+| [`WHITEPAPER.md`](docs/WHITEPAPER.md)                     | Comprehensive project document (business + technical)                |
+| [`WHITEPAPER.pdf`](docs/WHITEPAPER.pdf)                   | Same whitepaper, PDF format                                          |
 
 ---
 

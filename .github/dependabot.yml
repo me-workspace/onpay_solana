@@ -1,0 +1,48 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+    commit-message:
+      prefix: chore
+      prefix-development: chore
+      include: scope
+    groups:
+      solana:
+        patterns:
+          - "@solana/*"
+          - "@jup-ag/*"
+      next:
+        patterns:
+          - next
+          - eslint-config-next
+      supabase:
+        patterns:
+          - "@supabase/*"
+      dev-tooling:
+        patterns:
+          - "@typescript-eslint/*"
+          - "eslint*"
+          - "prettier*"
+          - "vitest*"
+          - "@vitejs/*"
+          - "husky"
+          - "lint-staged"
+          - "@commitlint/*"
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+    labels:
+      - dependencies
+    commit-message:
+      prefix: ci
