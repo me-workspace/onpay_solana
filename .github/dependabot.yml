@@ -22,9 +22,11 @@ updates:
         patterns:
           - next
           - eslint-config-next
-      supabase:
+      database:
         patterns:
-          - "@supabase/*"
+          - "drizzle-orm"
+          - "drizzle-kit"
+          - "postgres"
       dev-tooling:
         patterns:
           - "@typescript-eslint/*"

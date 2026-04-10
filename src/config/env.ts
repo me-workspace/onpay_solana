@@ -39,26 +39,37 @@ const emptyAsUndefined = z
 const publicEnvSchema = z.object({
   NEXT_PUBLIC_SOLANA_CLUSTER: solanaClusterSchema.default("devnet"),
   NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:3000"),
-  NEXT_PUBLIC_SUPABASE_URL: emptyAsUndefined.pipe(z.string().url().optional()),
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: emptyAsUndefined.pipe(z.string().min(1).optional()),
 });
 
 /** Server-only variables. Never expose these to the client. */
 const serverEnvSchema = publicEnvSchema.extend({
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
 
+  // ---- PostgreSQL --------------------------------------------------------
+  DATABASE_URL: z
+    .string()
+    .min(1, "DATABASE_URL is required")
+    .refine(
+      (v) => v.startsWith("postgres://") || v.startsWith("postgresql://"),
+      "DATABASE_URL must be a postgres:// or postgresql:// connection string",
+    ),
+  DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(100).default(5),
+
+  // ---- Solana ------------------------------------------------------------
   SOLANA_RPC_URL: z.string().url(),
   SOLANA_RPC_FALLBACK_URL: emptyAsUndefined.pipe(z.string().url().optional()),
 
+  // ---- Jupiter -----------------------------------------------------------
   JUPITER_API_URL: z.string().url().default("https://quote-api.jup.ag/v6"),
   JUPITER_MAX_SLIPPAGE_BPS: z.coerce.number().int().min(1).max(1000).default(100),
 
-  SUPABASE_SERVICE_ROLE_KEY: emptyAsUndefined.pipe(z.string().min(1).optional()),
-
+  // ---- Business config ---------------------------------------------------
   DEFAULT_SETTLEMENT_MINT: z.string().min(32).max(44),
 
+  // ---- Observability -----------------------------------------------------
   LOG_LEVEL: logLevelSchema.default("info"),
 
+  // ---- Invoice lifecycle -------------------------------------------------
   INVOICE_TTL_SECONDS: z.coerce.number().int().min(60).max(86_400).default(600),
 });
 
@@ -110,8 +121,6 @@ function parseEnv<Schema extends z.ZodType<Record<string, unknown>>>(
 export const publicEnv = parseEnv(publicEnvSchema, {
   NEXT_PUBLIC_SOLANA_CLUSTER: process.env.NEXT_PUBLIC_SOLANA_CLUSTER,
   NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
-  NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
 });
 
 /**

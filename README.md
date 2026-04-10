@@ -57,7 +57,7 @@ Either both steps succeed and the merchant receives USDC, or the whole transacti
 | Smart contract | Anchor (Rust) — optional for MVP                                |
 | Frontend       | Next.js 15 (App Router) + TypeScript + Tailwind CSS + shadcn/ui |
 | Wallets        | Phantom, Backpack, Solflare via `@solana/wallet-adapter`        |
-| Database       | Supabase (Postgres + RLS)                                       |
+| Database       | PostgreSQL + Drizzle ORM (any provider — Neon recommended)      |
 | Hosting        | Vercel                                                          |
 | Testing        | Vitest + Playwright                                             |
 | CI/CD          | GitHub Actions                                                  |
@@ -96,7 +96,7 @@ Either both steps succeed and the merchant receives USDC, or the whole transacti
 
 - Node.js 22+
 - A Solana wallet (Phantom or Backpack) with devnet SOL
-- Supabase project (free tier)
+- A PostgreSQL database ([Neon](https://neon.tech) free tier recommended — or any Postgres)
 - Helius RPC key (or use default Solana RPC)
 
 ### Setup
@@ -105,7 +105,8 @@ Either both steps succeed and the merchant receives USDC, or the whole transacti
 git clone https://github.com/me-workspace/onpay_solana.git
 cd onpay_solana
 npm install
-cp .env.example .env.local  # fill in your keys
+cp .env.example .env.local     # fill in DATABASE_URL + SOLANA_RPC_URL
+npm run db:migrate              # apply database migrations
 npm run dev
 ```
 

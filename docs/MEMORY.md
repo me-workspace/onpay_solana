@@ -89,7 +89,7 @@ This is the key differentiator from Stripe/Visa (high fees, fiat-only) and from 
 
 5. **Merchant auth:** Wallet-based. Merchants connect Phantom/Backpack; their wallet address IS their merchant ID. No passwords, no KYC for MVP.
 
-6. **Invoice storage:** Supabase Postgres for MVP (invoice metadata, status, amounts). On-chain receipts via transaction logs / program events.
+6. **Invoice storage:** PostgreSQL (Drizzle) Postgres for MVP (invoice metadata, status, amounts). On-chain receipts via transaction logs / program events.
 
 ---
 
@@ -104,7 +104,7 @@ This is the key differentiator from Stripe/Visa (high fees, fiat-only) and from 
 | Solana client | `@solana/web3.js`, `@solana/spl-token` | Standard |
 | Payment spec | Solana Pay (`@solana/pay`) | Official QR standard |
 | Swap | Jupiter v6 API (`@jup-ag/api` or direct HTTPS) | Deepest aggregated liquidity on Solana |
-| Database | Supabase (Postgres + RLS) | Free tier; handles invoices + merchant profiles |
+| Database | PostgreSQL (Drizzle) (Postgres + RLS) | Free tier; handles invoices + merchant profiles |
 | Hosting | Vercel | Zero-config Next.js deploys |
 | QR generation | `qrcode.react` | Lightweight, well-maintained |
 | SDK (future) | TS monorepo package | Enables e-commerce plugin strategy |
@@ -162,7 +162,7 @@ This is the key differentiator from Stripe/Visa (high fees, fiat-only) and from 
 | 2026-04-10 | Primary language for all docs: English | Hackathon rules require it |
 | 2026-04-10 | Start without custom Anchor program | Pure Jupiter + SPL composition is simpler and already demonstrates composability; add program only if it earns clear judging points |
 | 2026-04-10 | Solana Pay Transaction Request (not Transfer Request) | Required for dynamic any-token → USDC swap |
-| 2026-04-10 | Supabase for invoice storage | Free, fast, RLS for merchant isolation |
+| 2026-04-10 | PostgreSQL (Drizzle) for invoice storage | Free, fast, RLS for merchant isolation |
 | 2026-04-10 | Merchant auth = wallet connect only, no KYC | MVP focus; also reinforces non-custodial narrative |
 
 *Update this table any time an architectural or product decision is made.*

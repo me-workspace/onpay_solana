@@ -17,8 +17,10 @@ const contentSecurityPolicy = [
   "font-src 'self' data:",
   // Images: self + data URIs (QR codes) + HTTPS (merchant logos).
   "img-src 'self' data: blob: https:",
-  // Network calls: self + Solana RPC + Jupiter API + Supabase.
-  "connect-src 'self' https://*.solana.com https://*.helius-rpc.com https://quote-api.jup.ag https://lite-api.jup.ag https://*.supabase.co wss://*.supabase.co",
+  // Network calls: self + Solana RPC + Jupiter API.
+  // Note: the database connection is server-side only, so DATABASE_URL
+  // hosts do NOT need to be listed here.
+  "connect-src 'self' https://*.solana.com https://*.helius-rpc.com https://quote-api.jup.ag https://lite-api.jup.ag",
   // Frames: none.
   "frame-src 'none'",
   "frame-ancestors 'none'",

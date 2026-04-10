@@ -41,8 +41,8 @@ checklist" section in [`PLAN.md`](./PLAN.md).
 - [x] HSTS, X-Frame-Options, X-Content-Type-Options headers set
 - [x] No `dangerouslySetInnerHTML` in React components
 - [x] Structured logger with automatic PII redaction
-- [x] Supabase Row-Level Security policies for all tables
-- [x] Service-role Supabase client gated behind a runtime guard preventing
+- [x] PostgreSQL Row-Level Security policies for all tables
+- [x] Service-role PostgreSQL client gated behind a runtime guard preventing
       it from being constructed in client bundles
 - [x] Pinned exact dependency versions
 - [x] Dependabot enabled for weekly dependency hygiene
@@ -87,7 +87,7 @@ If a security incident is detected:
 1. **Isolate.** Disable the affected API route via Vercel's dashboard.
 2. **Communicate.** Post to the merchant Telegram channel and the public
    status page if the merchant dashboard is affected.
-3. **Diagnose.** Pull Vercel logs + Supabase logs for the affected time window.
+3. **Diagnose.** Pull Vercel logs + PostgreSQL logs for the affected time window.
 4. **Patch.** Fix the root cause in a hotfix branch and deploy.
 5. **Postmortem.** Write a public postmortem within 7 days of resolution.
 

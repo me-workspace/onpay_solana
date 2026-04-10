@@ -418,7 +418,7 @@ The buyer needs to have crypto in their wallet before paying. Options:
 - **Reference key system.** Unique cryptographic reference per invoice for tracking.
 - **Rate limiting.** Per-IP and per-reference limits to prevent abuse.
 - **Slippage cap.** Configurable maximum slippage (default 1%).
-- **Supabase storage.** Merchants, invoices, payments tables with Row-Level Security.
+- **PostgreSQL (Drizzle ORM) storage.** Merchants, invoices, payments tables with Row-Level Security.
 - **Vercel deployment.** Next.js frontend + API routes in one bundle.
 - **CI/CD.** GitHub Actions running typecheck, lint, tests on every push.
 
@@ -497,7 +497,7 @@ The buyer needs to have crypto in their wallet before paying. Options:
 
 1. **Kadek (merchant) creates invoice for $4.**
    - OnPay generates a unique reference key (32 random bytes).
-   - Stores invoice in Supabase: `{merchant: kadek_wallet, amount_usd: 4, reference: 0x...}`.
+   - Stores invoice in PostgreSQL (Drizzle ORM): `{merchant: kadek_wallet, amount_usd: 4, reference: 0x...}`.
    - Returns a Solana Pay Transaction Request URL encoding that reference.
    - Renders the URL as a QR code on Kadek's screen.
 
@@ -508,7 +508,7 @@ The buyer needs to have crypto in their wallet before paying. Options:
    - Wallet hits `POST /api/tx/[reference]` with Alex's public key and selected input token.
 
 3. **OnPay backend builds the transaction.**
-   - Loads the invoice from Supabase.
+   - Loads the invoice from PostgreSQL (Drizzle ORM).
    - Calls Jupiter v6 `/quote` endpoint: "Best route for X BONK → $4.00 USDC?"
    - Calls Jupiter v6 `/swap-instructions` to get the actual instructions (not a pre-built transaction, just the instructions).
    - Composes a new transaction:
@@ -533,8 +533,8 @@ The buyer needs to have crypto in their wallet before paying. Options:
 
 6. **OnPay updates state.**
    - A background worker (or webhook from Helius RPC) detects the confirmed transaction for this reference.
-   - Updates Supabase: `payments.status = 'paid', tx_hash = 0x...`
-   - Pushes a Supabase Realtime event to Kadek's dashboard.
+   - Updates PostgreSQL (Drizzle ORM): `payments.status = 'paid', tx_hash = 0x...`
+   - Pushes a PostgreSQL (Drizzle ORM) Realtime event to Kadek's dashboard.
    - Kadek's screen shows "Paid ✓".
 
 ## What OnPay charges (production, post-hackathon)
@@ -561,7 +561,7 @@ OnPay's revenue comes from three streams:
 | **Merchant savings** | — | **$220/month** |
 
 **OnPay revenue per merchant:** $30/month avg (at 0.3% fee).
-**OnPay cost per merchant:** ~$5/month (infrastructure, RPC, Supabase).
+**OnPay cost per merchant:** ~$5/month (infrastructure, RPC, PostgreSQL (Drizzle ORM)).
 **Gross margin per merchant:** ~83%.
 **Target: 100 merchants in 6 months → ~$3k/mo MRR, ~$36k ARR.**
 **Target: 1,000 merchants in 18 months → ~$30k/mo MRR, ~$360k ARR.**
@@ -604,7 +604,7 @@ These are conservative numbers on a single market (Bali). Phase 2 SDK/plugin rev
 
 ## Break-even
 
-- **Fixed costs (self-funded):** ~$200/month (Vercel Pro, Supabase, Helius, domains). Zero payroll while solo.
+- **Fixed costs (self-funded):** ~$200/month (Vercel Pro, PostgreSQL (Drizzle ORM), Helius, domains). Zero payroll while solo.
 - **Break-even merchant count:** ~7 merchants at $30/mo ARPU.
 - **Break-even timeline:** end of Month 2 post-launch.
 
@@ -680,7 +680,7 @@ The Colosseum Solana Frontier Hackathon judges on six explicit criteria. Here's 
 - **JSDoc on every exported function.** Self-documenting.
 - **Tests:** unit tests for transaction composition + Playwright end-to-end test for the full payment flow.
 - **Clean commit history** with conventional commit messages. No "WIP" commits.
-- **Security-hardened:** CSP headers, Supabase RLS policies, validated inputs, rate limiting, pinned dependencies, slippage caps.
+- **Security-hardened:** CSP headers, PostgreSQL (Drizzle ORM) RLS policies, validated inputs, rate limiting, pinned dependencies, slippage caps.
 - **Accessibility:** Lighthouse accessibility ≥95, keyboard navigable, screen-reader-tested.
 
 ### 2. Potential impact / TAM
@@ -744,7 +744,7 @@ Even teams that don't win the top prize often get invited to the Colosseum accel
 
 ### Week 1 — Foundation + critical spike (Apr 10–17)
 **Goal:** Prove the hardest technical unknowns work before touching UI.
-- Monorepo scaffolded: Next.js 15, TypeScript, Tailwind, shadcn/ui, Supabase client, wallet adapter
+- Monorepo scaffolded: Next.js 15, TypeScript, Tailwind, shadcn/ui, PostgreSQL (Drizzle ORM) client, wallet adapter
 - Solana Pay Transaction Request endpoint returns valid unsigned tx on devnet
 - Jupiter v6 quote + swap-instructions working
 - **Critical spike:** compose Jupiter swap + USDC transfer into one atomic transaction, fit in 1232 bytes (use ALTs if needed), confirm on devnet
@@ -762,14 +762,14 @@ Even teams that don't win the top prize often get invited to the Colosseum accel
 **Goal:** A real product, not a hackathon prototype.
 - Landing page (marketing)
 - Merchant onboarding flow
-- Dashboard: overview cards, transaction list, real-time updates (Supabase Realtime)
+- Dashboard: overview cards, transaction list, real-time updates (PostgreSQL (Drizzle ORM) Realtime)
 - Empty states, error states, loading states
 - Mobile-responsive
 
 ### Week 4 — Polish, security, mainnet dry-run (May 1–8)
 **Goal:** Ship-quality.
 - Line-by-line security review of every API route
-- Supabase RLS policy audit with negative tests
+- PostgreSQL (Drizzle ORM) RLS policy audit with negative tests
 - Accessibility pass (Lighthouse ≥95)
 - i18n (English + Bahasa) extracted and wired
 - JSDoc pass
@@ -799,7 +799,7 @@ OnPay is bootstrapped by a solo founder. Here's the full cost breakdown.
 |---|---|---|
 | Domain name (onpay.app or onpay.io) | $20 | One-year registration |
 | Vercel Hobby plan | $0 | Free tier is sufficient for the hackathon |
-| Supabase Free tier | $0 | Within limits for hackathon load |
+| PostgreSQL (Drizzle ORM) Free tier | $0 | Within limits for hackathon load |
 | Helius RPC (developer tier) | $0 | Free tier: 1M credits/month, enough for dev + demo |
 | Solana devnet SOL | $0 | Free airdrops |
 | Mainnet test SOL | $10 | For the one real mainnet dry-run payment |
@@ -814,7 +814,7 @@ OnPay is bootstrapped by a solo founder. Here's the full cost breakdown.
 | Item | Cost (USD/month) | Notes |
 |---|---|---|
 | Vercel Pro | $20 | Upgrade from Hobby when traffic grows; includes Vercel KV for rate limiting |
-| Supabase Pro | $25 | Once free tier is outgrown (~10k merchants) |
+| PostgreSQL (Drizzle ORM) Pro | $25 | Once free tier is outgrown (~10k merchants) |
 | Helius RPC Business | $99 | Production traffic, priority sends |
 | Domain renewal | $2 | Amortized from yearly renewal |
 | Monitoring (Sentry / Logflare) | $0 | Free tiers |
@@ -875,7 +875,7 @@ OnPay consists of four components:
 
 1. **Frontend (Next.js web app)** — merchant dashboard, invoice creation UI, public landing page.
 2. **Backend (Next.js API routes)** — Solana Pay Transaction Request endpoints, Jupiter integration, invoice management, real-time status.
-3. **Database (Supabase Postgres)** — merchants, invoices, payments, with Row-Level Security for merchant isolation.
+3. **Database (PostgreSQL (Drizzle ORM) Postgres)** — merchants, invoices, payments, with Row-Level Security for merchant isolation.
 4. **On-chain (Solana)** — Jupiter program, SPL Token program, and optionally a custom Anchor program for receipts/fees.
 
 ## Component diagram
@@ -899,7 +899,7 @@ OnPay consists of four components:
             │                               │
             ▼                               ▼
   ┌───────────────────┐         ┌─────────────────────────┐
-  │  Wallet Adapter   │         │     Supabase            │
+  │  Wallet Adapter   │         │     PostgreSQL (Drizzle ORM)            │
   │  (Phantom, etc.)  │         │  - merchants table       │
   └───────────────────┘         │  - invoices table        │
                                 │  - payments table        │
@@ -1159,7 +1159,7 @@ Two options for detecting completed payments:
 **Option B — Helius webhook** (better, production):
 - Subscribe a Helius webhook to any transaction mentioning the reference pubkey.
 - Helius POSTs to `/api/webhooks/helius` when detected.
-- Handler updates `payments` table and emits Supabase Realtime event.
+- Handler updates `payments` table and emits PostgreSQL (Drizzle ORM) Realtime event.
 - Dashboard subscribes to Realtime and updates instantly.
 
 MVP uses Option A; Option B is the Week 4 upgrade.
@@ -1210,7 +1210,7 @@ Solana's transaction size limit is 1232 bytes. A Jupiter swap + ATA creation + t
 - `@jup-ag/api` — Jupiter v6 API client (or direct HTTPS)
 
 ## Backend / Data
-- **Supabase** — Postgres + Realtime + RLS + optional auth
+- **PostgreSQL (Drizzle ORM)** — Postgres + Realtime + RLS + optional auth
 - **`@supabase/supabase-js`** — client
 - **Upstash Redis / Vercel KV** — rate limiting and short-lived cache
 - **Zod** — runtime input validation at API boundaries
@@ -1307,7 +1307,7 @@ This is what we mean by "non-custodial." It's a mathematical property of the tra
 
 OnPay's non-custodial claim is verifiable by reading the code. The guarantee holds as long as:
 
-1. The transaction returned by `/api/tx/[reference]` is built such that the final SPL transfer destination is the merchant's publicly-known wallet address (stored in the `merchants` table, which the merchant controls via Supabase RLS).
+1. The transaction returned by `/api/tx/[reference]` is built such that the final SPL transfer destination is the merchant's publicly-known wallet address (stored in the `merchants` table, which the merchant controls via PostgreSQL (Drizzle ORM) RLS).
 2. No instruction in the transaction causes funds to be temporarily routed through any OnPay-controlled account.
 3. The buyer's wallet — not OnPay — holds the private key that signs the transaction.
 
@@ -1316,9 +1316,9 @@ All three conditions are enforced in `/api/tx/[reference]/route.ts` and can be r
 ## Security review checklist (Week 4)
 
 - [ ] **Input validation** at every API boundary using Zod
-- [ ] **SQL injection impossible** — Supabase uses parameterized queries
-- [ ] **No secrets in client bundles** — all RPC keys, Supabase service keys are server-only
-- [ ] **Supabase Row-Level Security policies** verified with negative tests (merchant A cannot read merchant B's data)
+- [ ] **SQL injection impossible** — PostgreSQL (Drizzle ORM) uses parameterized queries
+- [ ] **No secrets in client bundles** — all RPC keys, PostgreSQL (Drizzle ORM) service keys are server-only
+- [ ] **PostgreSQL (Drizzle ORM) Row-Level Security policies** verified with negative tests (merchant A cannot read merchant B's data)
 - [ ] **Rate limiting** on all mutating endpoints (per-IP + per-wallet)
 - [ ] **CSP headers** configured in `next.config.ts`
 - [ ] **HTTPS only** enforced at Vercel level
@@ -1338,7 +1338,7 @@ All three conditions are enforced in `/api/tx/[reference]/route.ts` and can be r
 | Jupiter slippage on low-liquidity input tokens | Hard slippage cap; block tokens with no route; show slippage to buyer before signing |
 | Transaction size > 1232 bytes | Use v0 tx + Jupiter's ALTs; test with worst-case routes |
 | RPC congestion during mainnet demo | Helius priority sends + fallback RPC |
-| Supabase downtime | Cached merchant data on frontend; invoice creation queued with retry |
+| PostgreSQL (Drizzle ORM) downtime | Cached merchant data on frontend; invoice creation queued with retry |
 | Jupiter API downtime | Fall back to direct DEX routing (Raydium, Orca) as emergency path |
 | Regulatory exposure in Indonesia | Non-custodial design avoids most licensing; engage local counsel before fiat off-ramp |
 | Frontend XSS | CSP + Next.js output escaping + no `dangerouslySetInnerHTML` |
@@ -1408,7 +1408,7 @@ On merge to `main`:
 | Transaction composition exceeds size limit | Medium | High | Week 1 spike; use v0 + ALTs |
 | Mainnet RPC rate limits during demo | Medium | High | Helius paid tier for demo period |
 | Wallet adapter regressions | Low | Medium | Pin versions; regression test before demo |
-| Supabase downtime | Low | Medium | Non-critical — merchants can still receive payments on-chain, just dashboard lags |
+| PostgreSQL (Drizzle ORM) downtime | Low | Medium | Non-critical — merchants can still receive payments on-chain, just dashboard lags |
 
 ## Business risks
 

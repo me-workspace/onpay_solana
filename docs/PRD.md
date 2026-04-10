@@ -190,10 +190,10 @@ Merchant Dashboard  ◄── WebSocket / polling ◄───── Reference k
 - **Smart contract layer:** Anchor (Rust). Optional for MVP — pure Jupiter + SPL composition works. Added only if a custom program meaningfully improves security, event emission, or Solana-composability scoring.
 - **Frontend:** Next.js 15 (App Router) + TypeScript + Tailwind CSS + shadcn/ui
 - **Backend:** Next.js API routes (serverless functions on Vercel)
-- **Database:** Supabase (Postgres + Row Level Security for merchant isolation)
+- **Database:** PostgreSQL (Drizzle ORM) (Postgres + Row Level Security for merchant isolation)
 - **Solana clients:** `@solana/web3.js`, `@solana/spl-token`, `@solana/pay`, `@solana/wallet-adapter`
 - **Swap:** Jupiter v6 API (`@jup-ag/api` or direct HTTPS)
-- **Hosting:** Vercel (frontend + API) + Supabase cloud (database)
+- **Hosting:** Vercel (frontend + API) + PostgreSQL (Drizzle ORM) cloud (database)
 - **Observability:** Vercel Analytics + on-chain tx logs via Helius or Triton RPC
 - **CI/CD:** GitHub Actions (test, typecheck, deploy preview per PR)
 - **AI-assisted development:** Claude Code, v0.dev, Cursor
@@ -201,8 +201,8 @@ Merchant Dashboard  ◄── WebSocket / polling ◄───── Reference k
 ### 8.3 Security considerations
 
 - All user input validated at API boundaries
-- Environment variables for RPC endpoints, Supabase keys, merchant treasury (never committed)
-- Supabase RLS so each merchant only sees their own invoices
+- Environment variables for RPC endpoints, PostgreSQL (Drizzle ORM) keys, merchant treasury (never committed)
+- PostgreSQL (Drizzle ORM) RLS so each merchant only sees their own invoices
 - Content Security Policy headers
 - Rate limiting on the Transaction Request endpoint (per-IP + per-reference)
 - Slippage cap on Jupiter swaps (configurable; default 1%)

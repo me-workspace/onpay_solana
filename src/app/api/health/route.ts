@@ -6,7 +6,7 @@
  *
  * - Env vars are loaded (implicit — importing this file triggers env.ts)
  * - Solana RPC is reachable
- * - Supabase is configured (not a live call, just config check)
+ * - PostgreSQL is reachable (live `SELECT 1`)
  *
  * Use this endpoint from Vercel uptime monitoring and as a smoke test after
  * every deploy. It should NEVER leak secrets or internal details.
@@ -14,11 +14,13 @@
 import { NextResponse } from "next/server";
 
 import { publicEnv, serverEnv } from "@/config/env";
+import { pingDatabase } from "@/infrastructure/db/client";
 import { createSolanaClient } from "@/infrastructure/solana/client";
 import { logger } from "@/lib/logger";
+import { tryAsync } from "@/lib/result";
 
-// Important: this must run on the Node runtime (not Edge) because @solana/web3.js
-// and pino depend on Node APIs.
+// Important: this must run on the Node runtime (not Edge) because
+// @solana/web3.js, postgres, and pino depend on Node APIs.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -44,15 +46,16 @@ export async function GET(): Promise<NextResponse<HealthResponse>> {
 
   const components: HealthComponent[] = [];
 
-  // 1. Config sanity: Supabase is optional but we flag if it's missing.
-  if (publicEnv.NEXT_PUBLIC_SUPABASE_URL === undefined) {
-    components.push({
-      name: "supabase",
-      status: "degraded",
-      message: "Supabase URL not configured",
-    });
+  // 1. PostgreSQL live check.
+  const dbResult = await tryAsync(pingDatabase(), (cause) => ({ cause }));
+  if (dbResult.ok) {
+    components.push({ name: "postgres", status: "ok" });
   } else {
-    components.push({ name: "supabase", status: "ok" });
+    components.push({
+      name: "postgres",
+      status: "degraded",
+      message: "Database ping failed",
+    });
   }
 
   // 2. Solana RPC live check.
