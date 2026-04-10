@@ -27,7 +27,7 @@
     "@solana/pay": "0.2.5",
     "@solana/spl-token": "0.4.9",
     "@solana/web3.js": "1.98.0",
-    "@supabase/ssr": "0.5.2",
+    "@supabase/ssr": "0.10.2",
     "@supabase/supabase-js": "2.103.0",
     "nanoid": "5.0.9",
     "next": "15.5.15",
