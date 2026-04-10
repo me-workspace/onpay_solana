@@ -1,0 +1,65 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# Testing
+coverage/
+.nyc_output
+
+# Next.js
+.next/
+out/
+build/
+dist/
+
+# Production
+*.tsbuildinfo
+next-env.d.ts
+
+# Environment variables and secrets
+.env
+.env*.local
+.env.development
+.env.production
+.env.test
+
+# Secrets / tokens (NEVER commit)
+**/Colosseum*Copilot*.txt
+**/*token*.txt
+**/*secret*.txt
+**/*.pem
+**/*.key
+
+# Vercel
+.vercel
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Python build artifacts (for docs PDF generation)
+__pycache__/
+*.pyc
+docs/_whitepaper.html
+docs/*.html
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Solana
+*.keypair
+.anchor/
+target/
