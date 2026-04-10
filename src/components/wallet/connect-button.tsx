@@ -3,34 +3,57 @@
 /**
  * Wallet connect button — minimal, no dependency on @solana/wallet-adapter-react-ui.
  *
- * Behavior:
- *   - If no wallets are detected, shows a "No Solana wallet detected" hint.
- *   - If disconnected, shows a dropdown listing every wallet that has
- *     announced itself via the Wallet Standard (Phantom, Backpack, etc.).
- *   - If connected, shows the truncated wallet address and a Disconnect button.
+ * IMPORTANT: this component renders different UI depending on whether a
+ * Solana wallet extension is installed in the browser. On the Next.js server
+ * the wallet standard registry is empty (`wallets.length === 0`), but on the
+ * client it fills in with Phantom/Backpack/Solflare/etc. That difference
+ * causes a React hydration mismatch if we render the real output during the
+ * initial pass.
  *
- * We deliberately do NOT run a manual auto-connect effect here — that job
- * belongs to the `autoConnect` prop on WalletProvider. Having two code paths
- * calling `connect()` concurrently was racy and caused duplicate error
- * rejections from the wallet extension.
+ * The fix is the standard "mounted gate" pattern: render a neutral, stable
+ * placeholder on the server and during the first hydration pass, then swap
+ * to the live output after the first client-side effect tick. The placeholder
+ * is intentionally the same size and shape as the real button so the layout
+ * doesn't shift.
+ *
+ * We also:
+ *   - Do NOT run a manual auto-connect effect (that's the job of the
+ *     provider's `autoConnect` prop).
+ *   - Call `disconnect` / `select` via the context object (not destructured)
+ *     so `this` binding stays intact.
  *
  * Tailwind only — no third-party CSS bundles.
  */
 import { useWallet } from "@solana/wallet-adapter-react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 function truncate(address: string): string {
   return `${address.slice(0, 4)}…${address.slice(-4)}`;
 }
 
+/** Neutral placeholder rendered during SSR + first hydration pass. */
+function Placeholder(): React.JSX.Element {
+  return (
+    <div
+      aria-hidden
+      className="inline-flex h-[42px] w-[148px] items-center justify-center rounded-lg bg-slate-100 text-sm text-slate-400"
+    >
+      …
+    </div>
+  );
+}
+
 export function ConnectWalletButton(): React.JSX.Element {
-  // We intentionally keep the full context reference rather than destructuring
-  // the bound methods (select / connect / disconnect). Destructuring would
-  // trip @typescript-eslint/unbound-method and, more importantly, can lose
-  // the `this` binding if the implementation changes in a future release.
   const walletCtx = useWallet();
   const { wallets, publicKey, connecting, connected } = walletCtx;
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  // Flip after the first client-side render so we can safely diverge from
+  // the server HTML without tripping React hydration.
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleDisconnect = useCallback(() => {
     void walletCtx.disconnect().catch(() => {
@@ -45,6 +68,9 @@ export function ConnectWalletButton(): React.JSX.Element {
     },
     [walletCtx],
   );
+
+  // Server and first-pass client render the same neutral placeholder.
+  if (!mounted) return <Placeholder />;
 
   if (connected && publicKey !== null) {
     return (
