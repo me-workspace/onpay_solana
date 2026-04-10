@@ -7,9 +7,9 @@
  * - optional fallback URL (primary→fallback retry on transport failure)
  * - health check for the `/api/health` endpoint
  */
-import { Connection } from "@solana/web3.js";
+import { Connection, PublicKey } from "@solana/web3.js";
 
-import type { SolanaClient } from "@/application/ports/solana-client";
+import type { AddressLookupTable, SolanaClient } from "@/application/ports/solana-client";
 import { serverEnv } from "@/config/env";
 import { domainError } from "@/domain/errors";
 import { err, ok, tryAsync, type Result } from "@/lib/result";
@@ -86,6 +86,26 @@ export function createSolanaClient(): SolanaClient {
   return {
     async getLatestBlockhash() {
       return runWithFallback("getLatestBlockhash", (conn) => conn.getLatestBlockhash("finalized"));
+    },
+
+    async getAddressLookupTables(pubkeys) {
+      if (pubkeys.length === 0) return ok([]);
+      const result = await runWithFallback("getAddressLookupTables", async (conn) => {
+        const keys = pubkeys.map((p) => new PublicKey(p));
+        const accounts = await Promise.all(
+          keys.map((key) => conn.getAddressLookupTable(key).then((res) => res.value)),
+        );
+        const tables: AddressLookupTable[] = [];
+        accounts.forEach((account, i) => {
+          if (account === null) return;
+          tables.push({
+            pubkey: pubkeys[i] ?? "",
+            addresses: account.state.addresses.map((a) => a.toBase58()),
+          });
+        });
+        return tables;
+      });
+      return result;
     },
 
     async checkHealth() {

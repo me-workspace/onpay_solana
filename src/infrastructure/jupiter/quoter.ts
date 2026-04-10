@@ -6,34 +6,75 @@
  * - Explicit timeouts
  * - Domain-level error mapping
  *
- * We only implement `quoteExactOut` for now, which is what the payment flow
- * needs: "how much of token X do we need to swap to receive exactly $Y of USDC?"
- * Quote IDs are preserved so the transaction builder can call
- * `/swap-instructions` with the same route in a follow-up call.
+ * Two endpoints are wrapped:
+ *   1. GET  /v6/quote               — find the best route for an exact-out swap
+ *   2. POST /v6/swap-instructions   — get the on-chain instructions for that route
+ *
+ * Both responses are validated with narrow Zod schemas — only fields we
+ * actually consume are required to be present, so Jupiter can ship new fields
+ * without breaking us.
  */
 import { z } from "zod";
 
-import type { QuoteRequest, SwapQuote, SwapQuoter } from "@/application/ports/swap-quoter";
+import type {
+  FetchInstructionsRequest,
+  QuoteRequest,
+  SerializedInstruction,
+  SwapInstructions,
+  SwapQuote,
+  SwapQuoter,
+} from "@/application/ports/swap-quoter";
 import { serverEnv } from "@/config/env";
 import { domainError, type DomainError } from "@/domain/errors";
 import { err, ok, tryAsync, type Result } from "@/lib/result";
 
 const QUOTE_TIMEOUT_MS = 6_000;
+const SWAP_INSTRUCTIONS_TIMEOUT_MS = 8_000;
 
-/** Minimal Zod schema for the Jupiter /quote response. We only validate fields we use. */
-const quoteResponseSchema = z.object({
-  inAmount: z.string(),
-  outAmount: z.string(),
-  slippageBps: z.number().int(),
-  // Full route plan is opaque to us — pass it along to the swap-instructions endpoint.
-  routePlan: z.array(z.unknown()),
+// ---------------------------------------------------------------------------
+// Zod schemas — validate every field we consume.
+// ---------------------------------------------------------------------------
+const quoteResponseSchema = z
+  .object({
+    inAmount: z.string(),
+    outAmount: z.string(),
+    slippageBps: z.number().int(),
+    routePlan: z.array(z.unknown()),
+  })
+  .passthrough();
+
+const serializedInstructionSchema = z.object({
+  programId: z.string(),
+  accounts: z.array(
+    z.object({
+      pubkey: z.string(),
+      isSigner: z.boolean(),
+      isWritable: z.boolean(),
+    }),
+  ),
+  data: z.string(),
 });
 
-async function fetchWithTimeout(url: string, init?: RequestInit): Promise<Response> {
+const swapInstructionsResponseSchema = z.object({
+  computeBudgetInstructions: z.array(serializedInstructionSchema).default([]),
+  setupInstructions: z.array(serializedInstructionSchema).default([]),
+  swapInstruction: serializedInstructionSchema,
+  cleanupInstructions: z.array(serializedInstructionSchema).default([]),
+  addressLookupTableAddresses: z.array(z.string()).default([]),
+});
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit | undefined,
+  timeoutMs: number,
+): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => {
     controller.abort();
-  }, QUOTE_TIMEOUT_MS);
+  }, timeoutMs);
   try {
     return await fetch(url, { ...init, signal: controller.signal });
   } finally {
@@ -41,15 +82,42 @@ async function fetchWithTimeout(url: string, init?: RequestInit): Promise<Respon
   }
 }
 
+/** Cast the validated swap-instructions Zod result to our domain type. */
+function toSwapInstructions(
+  parsed: z.infer<typeof swapInstructionsResponseSchema>,
+): SwapInstructions {
+  const map = (ix: z.infer<typeof serializedInstructionSchema>): SerializedInstruction => ({
+    programId: ix.programId,
+    accounts: ix.accounts.map((a) => ({
+      pubkey: a.pubkey,
+      isSigner: a.isSigner,
+      isWritable: a.isWritable,
+    })),
+    data: ix.data,
+  });
+  return {
+    computeBudgetInstructions: parsed.computeBudgetInstructions.map(map),
+    setupInstructions: parsed.setupInstructions.map(map),
+    swapInstruction: map(parsed.swapInstruction),
+    cleanupInstructions: parsed.cleanupInstructions.map(map),
+    addressLookupTableAddresses: parsed.addressLookupTableAddresses,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Adapter
+// ---------------------------------------------------------------------------
 export function createJupiterQuoter(): SwapQuoter {
   return {
     async quoteExactOut(request: QuoteRequest): Promise<Result<SwapQuote, DomainError>> {
-      // Hard slippage cap — never let the caller request more than the configured limit.
+      // Hard slippage cap — never let the caller request more than configured.
       if (request.slippageBps > serverEnv.JUPITER_MAX_SLIPPAGE_BPS) {
         return err(
           domainError(
             "VALIDATION_FAILED",
-            `Slippage ${String(request.slippageBps)} exceeds max ${String(serverEnv.JUPITER_MAX_SLIPPAGE_BPS)} bps`,
+            `Slippage ${String(request.slippageBps)} exceeds max ${String(
+              serverEnv.JUPITER_MAX_SLIPPAGE_BPS,
+            )} bps`,
           ),
         );
       }
@@ -63,7 +131,11 @@ export function createJupiterQuoter(): SwapQuoter {
       url.searchParams.set("onlyDirectRoutes", "false");
 
       const responseResult = await tryAsync(
-        fetchWithTimeout(url.toString(), { headers: { accept: "application/json" } }),
+        fetchWithTimeout(
+          url.toString(),
+          { headers: { accept: "application/json" } },
+          QUOTE_TIMEOUT_MS,
+        ),
         (cause) => ({ cause }),
       );
       if (!responseResult.ok) {
@@ -101,18 +173,92 @@ export function createJupiterQuoter(): SwapQuoter {
         );
       }
 
-      // We intentionally keep the quote id opaque. The swap-instructions endpoint
-      // accepts the raw quote response object; at this stage we only need a
-      // placeholder. A follow-up task will serialize the full quote for use
-      // by the transaction builder.
+      // We pass the entire parsed quote object as `opaqueQuote` so the
+      // swap-instructions endpoint can receive it back verbatim.
       return ok({
         inputMint: request.inputMint,
         outputMint: request.outputMint,
         inputAmount: BigInt(parsed.data.inAmount),
         outputAmount: BigInt(parsed.data.outAmount),
         slippageBps: parsed.data.slippageBps,
-        quoteId: JSON.stringify(parsed.data),
+        opaqueQuote: parsed.data,
       });
+    },
+
+    async fetchSwapInstructions(
+      request: FetchInstructionsRequest,
+    ): Promise<Result<SwapInstructions, DomainError>> {
+      const url = `${serverEnv.JUPITER_API_URL}/swap-instructions`;
+      const body: Record<string, unknown> = {
+        userPublicKey: request.userPublicKey,
+        quoteResponse: request.quote.opaqueQuote,
+        wrapAndUnwrapSol: true,
+        // We do NOT use the deprecated `feeAccount` field. Protocol fees in
+        // Phase 2 will be a separate atomic instruction inside the same tx.
+        useSharedAccounts: true,
+        // Compute unit limit / price are configured per-tx by the builder,
+        // not by Jupiter, so we leave these defaults alone.
+      };
+      if (request.destinationTokenAccount !== null) {
+        body.destinationTokenAccount = request.destinationTokenAccount;
+      }
+
+      const responseResult = await tryAsync(
+        fetchWithTimeout(
+          url,
+          {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+              accept: "application/json",
+            },
+            body: JSON.stringify(body),
+          },
+          SWAP_INSTRUCTIONS_TIMEOUT_MS,
+        ),
+        (cause) => ({ cause }),
+      );
+      if (!responseResult.ok) {
+        return err(
+          domainError("UPSTREAM_FAILURE", "Jupiter swap-instructions request failed", {
+            cause: responseResult.error.cause,
+          }),
+        );
+      }
+
+      const response = responseResult.value;
+      if (!response.ok) {
+        return err(
+          domainError(
+            "UPSTREAM_FAILURE",
+            `Jupiter swap-instructions returned HTTP ${String(response.status)}`,
+          ),
+        );
+      }
+
+      const jsonResult = await tryAsync(response.json() as Promise<unknown>, (cause) => ({
+        cause,
+      }));
+      if (!jsonResult.ok) {
+        return err(
+          domainError("UPSTREAM_FAILURE", "Jupiter swap-instructions response was not JSON", {
+            cause: jsonResult.error.cause,
+          }),
+        );
+      }
+
+      const parsed = swapInstructionsResponseSchema.safeParse(jsonResult.value);
+      if (!parsed.success) {
+        return err(
+          domainError(
+            "UPSTREAM_FAILURE",
+            "Jupiter swap-instructions response failed schema validation",
+            { details: parsed.error.flatten() },
+          ),
+        );
+      }
+
+      return ok(toSwapInstructions(parsed.data));
     },
   };
 }

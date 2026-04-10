@@ -27,6 +27,7 @@ next-env.d.ts
 
 # Secrets / tokens (NEVER commit)
 **/Colosseum*Copilot*.txt
+**/*VPS*Access*.txt
 **/*token*.txt
 **/*secret*.txt
 **/*.pem
