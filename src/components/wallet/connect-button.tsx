@@ -5,39 +5,46 @@
  *
  * Behavior:
  *   - If no wallets are detected, shows a "No Solana wallet detected" hint.
- *   - If disconnected, shows a dropdown listing every wallet that's announced
- *     itself via the Wallet Standard (Phantom, Backpack, Solflare, etc.).
+ *   - If disconnected, shows a dropdown listing every wallet that has
+ *     announced itself via the Wallet Standard (Phantom, Backpack, etc.).
  *   - If connected, shows the truncated wallet address and a Disconnect button.
+ *
+ * We deliberately do NOT run a manual auto-connect effect here — that job
+ * belongs to the `autoConnect` prop on WalletProvider. Having two code paths
+ * calling `connect()` concurrently was racy and caused duplicate error
+ * rejections from the wallet extension.
  *
  * Tailwind only — no third-party CSS bundles.
  */
 import { useWallet } from "@solana/wallet-adapter-react";
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 
 function truncate(address: string): string {
   return `${address.slice(0, 4)}…${address.slice(-4)}`;
 }
 
 export function ConnectWalletButton(): React.JSX.Element {
-  // We deliberately do NOT destructure `select`/`connect`/`disconnect` from
-  // useWallet — those are bound methods on the wallet adapter context, and
-  // destructuring would trip @typescript-eslint/unbound-method. Calling them
-  // through `wallet` keeps the `this` binding intact.
+  // We intentionally keep the full context reference rather than destructuring
+  // the bound methods (select / connect / disconnect). Destructuring would
+  // trip @typescript-eslint/unbound-method and, more importantly, can lose
+  // the `this` binding if the implementation changes in a future release.
   const walletCtx = useWallet();
-  const { wallets, wallet, publicKey, connecting, connected } = walletCtx;
+  const { wallets, publicKey, connecting, connected } = walletCtx;
   const [open, setOpen] = useState(false);
 
-  // Auto-connect once a wallet is selected. We intentionally read
-  // `walletCtx.connect` inside the effect rather than via the dependency
-  // array — its identity changes on every render and we only want to
-  // re-run when the connection state primitives change.
-  useEffect(() => {
-    if (wallet !== null && !connected && !connecting) {
-      void walletCtx.connect().catch(() => {
-        // Swallow — the wallet adapter shows its own error UI on user reject.
-      });
-    }
-  }, [wallet, connected, connecting, walletCtx]);
+  const handleDisconnect = useCallback(() => {
+    void walletCtx.disconnect().catch(() => {
+      // Swallowed — provider's onError handler logs the details.
+    });
+  }, [walletCtx]);
+
+  const handleSelect = useCallback(
+    (name: Parameters<typeof walletCtx.select>[0]) => {
+      walletCtx.select(name);
+      setOpen(false);
+    },
+    [walletCtx],
+  );
 
   if (connected && publicKey !== null) {
     return (
@@ -47,9 +54,7 @@ export function ConnectWalletButton(): React.JSX.Element {
         </span>
         <button
           type="button"
-          onClick={() => {
-            void walletCtx.disconnect();
-          }}
+          onClick={handleDisconnect}
           className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
         >
           Disconnect
@@ -105,8 +110,7 @@ export function ConnectWalletButton(): React.JSX.Element {
                   type="button"
                   className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-50"
                   onClick={() => {
-                    walletCtx.select(entry.adapter.name);
-                    setOpen(false);
+                    handleSelect(entry.adapter.name);
                   }}
                 >
                   <img alt="" src={entry.adapter.icon} className="h-5 w-5" />
