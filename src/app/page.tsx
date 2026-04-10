@@ -20,18 +20,18 @@ export default function HomePage(): React.JSX.Element {
         </p>
         <div className="mt-8 flex flex-wrap gap-3">
           <a
-            href="https://github.com/me-workspace/onpay_solana"
+            href="/dashboard"
             className="inline-flex items-center rounded-lg bg-slate-900 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-800"
+          >
+            Open dashboard →
+          </a>
+          <a
+            href="https://github.com/me-workspace/onpay_solana"
+            className="inline-flex items-center rounded-lg border border-slate-300 bg-white px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
             rel="noopener noreferrer"
             target="_blank"
           >
             View on GitHub
-          </a>
-          <a
-            href="/api/health"
-            className="inline-flex items-center rounded-lg border border-slate-300 bg-white px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-          >
-            System status
           </a>
         </div>
         <p className="mt-12 text-xs text-slate-400">

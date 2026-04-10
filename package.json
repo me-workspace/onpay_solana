@@ -30,12 +30,15 @@
   "dependencies": {
     "@solana/pay": "0.2.5",
     "@solana/spl-token": "0.4.9",
+    "@solana/wallet-adapter-base": "0.9.24",
+    "@solana/wallet-adapter-react": "0.15.36",
     "@solana/web3.js": "1.98.0",
     "drizzle-orm": "0.45.2",
     "nanoid": "5.0.9",
     "next": "15.5.15",
     "pino": "9.6.0",
     "postgres": "3.4.5",
+    "qrcode.react": "4.2.0",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "zod": "3.24.1"
@@ -69,6 +72,8 @@
     "esbuild": "0.25.12",
     "@esbuild-kit/core-utils": {
       "esbuild": "0.25.12"
-    }
+    },
+    "@types/react": "19.0.7",
+    "@types/react-dom": "19.0.3"
   }
 }
