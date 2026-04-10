@@ -44,9 +44,20 @@ export function WalletProvider({ children }: { children: ReactNode }): React.JSX
       const message = typeof obj.message === "string" ? obj.message : String(error);
       const cause = obj.cause !== undefined ? obj.cause : obj.error;
 
-      const suggestion =
-        name === "WalletConnectionError" || name === "WalletNotSelectedError"
-          ? " (this is expected if you haven't approved OnPay in your wallet yet — just click Connect and accept the popup)"
+      // Detect the Chrome extension service-worker failure — nothing we can
+      // fix in code, the user needs to hard-reload the tab.
+      const isContextInvalidated =
+        message.includes("Extension context invalidated") ||
+        (typeof cause === "object" &&
+          cause !== null &&
+          "message" in cause &&
+          typeof (cause as { message: unknown }).message === "string" &&
+          (cause as { message: string }).message.includes("Extension context invalidated"));
+
+      const suggestion = isContextInvalidated
+        ? " — the wallet extension was reloaded. HARD-RELOAD the tab (Ctrl+F5 / Cmd+Shift+R) to recover."
+        : name === "WalletConnectionError" || name === "WalletNotSelectedError"
+          ? " (expected if you haven't approved OnPay in your wallet yet — click Connect and accept the popup)"
           : name === "WalletDisconnectedError"
             ? " (wallet disconnected — this is fine, just reconnect)"
             : "";

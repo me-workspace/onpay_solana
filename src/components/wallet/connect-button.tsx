@@ -27,6 +27,14 @@
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useCallback, useEffect, useState } from "react";
 
+/**
+ * How long we'll wait for a `connect()` call to resolve before showing the
+ * user a "stuck — click to cancel" escape hatch. 10 seconds is long enough
+ * to let Phantom show its approval popup and for a human to actually read
+ * it, but short enough that an extension in a broken state is obvious.
+ */
+const CONNECTING_STUCK_MS = 10_000;
+
 function truncate(address: string): string {
   return `${address.slice(0, 4)}…${address.slice(-4)}`;
 }
@@ -48,6 +56,7 @@ export function ConnectWalletButton(): React.JSX.Element {
   const { wallets, publicKey, connecting, connected } = walletCtx;
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [stuck, setStuck] = useState(false);
 
   // Flip after the first client-side render so we can safely diverge from
   // the server HTML without tripping React hydration.
@@ -55,9 +64,36 @@ export function ConnectWalletButton(): React.JSX.Element {
     setMounted(true);
   }, []);
 
+  // If `connecting` stays true for too long, we assume the wallet extension
+  // has entered a broken state (service worker killed, popup dismissed
+  // without resolving, extension reloaded mid-flight). Surface an escape
+  // hatch so the user isn't trapped watching a spinner forever.
+  useEffect(() => {
+    if (!connecting) {
+      setStuck(false);
+      return;
+    }
+    const timer = setTimeout(() => {
+      setStuck(true);
+    }, CONNECTING_STUCK_MS);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [connecting]);
+
   const handleDisconnect = useCallback(() => {
     void walletCtx.disconnect().catch(() => {
       // Swallowed — provider's onError handler logs the details.
+    });
+  }, [walletCtx]);
+
+  const handleCancelStuck = useCallback(() => {
+    setStuck(false);
+    // Best effort: tell the adapter to disconnect. If its internal state
+    // is fully broken (Chrome extension context invalidated), this may
+    // still throw — that's fine, the onError handler swallows it.
+    void walletCtx.disconnect().catch(() => {
+      // ignored
     });
   }, [walletCtx]);
 
@@ -111,6 +147,25 @@ export function ConnectWalletButton(): React.JSX.Element {
           Backpack
         </a>{" "}
         to continue.
+      </div>
+    );
+  }
+
+  if (stuck) {
+    return (
+      <div className="flex flex-col items-end gap-2">
+        <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-xs text-amber-900">
+          Connection stuck. Your wallet extension may have reloaded. Try
+          <span className="mx-1 font-mono">Ctrl+F5</span>
+          to hard-reload the tab.
+        </div>
+        <button
+          type="button"
+          onClick={handleCancelStuck}
+          className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+        >
+          Cancel
+        </button>
       </div>
     );
   }
