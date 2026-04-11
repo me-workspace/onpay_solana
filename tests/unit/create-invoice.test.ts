@@ -54,6 +54,7 @@ function makeFakeRepo(): {
     },
     updateStatus: () =>
       Promise.resolve(err(domainError("INTERNAL_ERROR", "not implemented in fake"))),
+    expirePendingBefore: () => Promise.resolve(ok(0)),
   };
   return { repo, lastCreate: state };
 }
@@ -213,6 +214,7 @@ describe("createInvoice use case", () => {
       listByMerchant: () => Promise.resolve(ok([])),
       create: () => Promise.resolve(err(domainError("UPSTREAM_FAILURE", "db down"))),
       updateStatus: () => Promise.resolve(err(domainError("INTERNAL_ERROR", "n/a"))),
+      expirePendingBefore: () => Promise.resolve(ok(0)),
     };
 
     const result = await createInvoice(

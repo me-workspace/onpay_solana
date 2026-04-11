@@ -1,0 +1,62 @@
+/**
+ * POST /api/cron/expire-invoices — sweep all stale pending invoices.
+ *
+ * Lazy expiration inside confirmInvoice handles the invoices merchants
+ * are actively watching, but un-polled stale rows accumulate if no one
+ * visits them. This endpoint cleans them up in a single SQL UPDATE.
+ *
+ * Guarded by a shared secret passed in the `x-cron-secret` header. Set
+ * CRON_SECRET in production env and configure your scheduler (Vercel
+ * Cron, systemd timer, external cron) to call this endpoint once per
+ * minute with the matching header.
+ *
+ * If CRON_SECRET is not configured, the endpoint refuses all requests —
+ * fail-closed default.
+ */
+import { NextResponse, type NextRequest } from "next/server";
+
+import { serverEnv } from "@/config/env.server";
+import { getDb } from "@/infrastructure/db/client";
+import { createInvoiceRepository } from "@/infrastructure/db/invoice-repo";
+import { apiError } from "@/lib/api-error";
+import { withErrorHandler } from "@/lib/http";
+import { logger } from "@/lib/logger";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+type Response = {
+  readonly expired: number;
+  readonly at: string;
+};
+
+export const POST = withErrorHandler(async (req: NextRequest) => {
+  // Fail-closed: if CRON_SECRET isn't configured, refuse all calls.
+  const configured = serverEnv.CRON_SECRET;
+  if (configured === undefined) {
+    throw apiError("FORBIDDEN", "Cron endpoint is not configured.");
+  }
+
+  const provided = req.headers.get("x-cron-secret");
+  if (provided !== configured) {
+    throw apiError("UNAUTHORIZED", "Invalid cron secret.");
+  }
+
+  const log = logger.child({ route: "POST /api/cron/expire-invoices" });
+  const invoiceRepo = createInvoiceRepository(getDb());
+  const now = new Date();
+
+  const result = await invoiceRepo.expirePendingBefore(now);
+  if (!result.ok) {
+    log.error({ err: result.error }, "failed to expire invoices");
+    throw apiError("INTERNAL_ERROR", "Failed to expire invoices");
+  }
+
+  log.info({ expired: result.value }, "expiration sweep complete");
+
+  const body: Response = {
+    expired: result.value,
+    at: now.toISOString(),
+  };
+  return NextResponse.json(body, { status: 200 });
+});

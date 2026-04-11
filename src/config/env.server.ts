@@ -71,6 +71,14 @@ const serverEnvSchema = z.object({
 
   // ---- Invoice lifecycle -------------------------------------------------
   INVOICE_TTL_SECONDS: z.coerce.number().int().min(60).max(86_400).default(600),
+
+  // ---- Internal cron -----------------------------------------------------
+  /**
+   * Shared secret that must be present as `x-cron-secret` on every call
+   * to internal cron endpoints (/api/cron/*). Blocks public access to
+   * expiration sweepers, etc.
+   */
+  CRON_SECRET: emptyAsUndefined.pipe(z.string().min(16).optional()),
 });
 
 // ---------------------------------------------------------------------------

@@ -17,6 +17,15 @@ export type InvoiceRepository = {
   ): Promise<Result<readonly Invoice[], DomainError>>;
   create(input: CreateInvoiceRepoInput): Promise<Result<Invoice, DomainError>>;
   updateStatus(id: InvoiceId, status: InvoiceStatus): Promise<Result<Invoice, DomainError>>;
+  /**
+   * Bulk-mark all pending invoices whose `expires_at` is earlier than `before`
+   * as expired. Used by the scheduled expiration sweeper — the lazy check in
+   * confirmInvoice handles individually-observed invoices, but stale rows
+   * that no one is watching still need cleanup.
+   *
+   * Returns the count of rows updated.
+   */
+  expirePendingBefore(before: Date): Promise<Result<number, DomainError>>;
 };
 
 export type CreateInvoiceRepoInput = {

@@ -9,7 +9,7 @@
  * All methods return `Result<T, DomainError>` so upstream errors
  * surface explicitly to the application layer.
  */
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, lt } from "drizzle-orm";
 
 import type {
   CreateInvoiceRepoInput,
@@ -146,6 +146,18 @@ export function createInvoiceRepository(db: Database): InvoiceRepository {
         return err(domainError("NOT_FOUND", `Invoice ${id} not found`));
       }
       return ok(rowToInvoice(row));
+    },
+
+    async expirePendingBefore(before: Date): Promise<Result<number, DomainError>> {
+      const result = await runQuery("expirePendingInvoices", () =>
+        db
+          .update(invoices)
+          .set({ status: "expired" })
+          .where(and(eq(invoices.status, "pending"), lt(invoices.expiresAt, before)))
+          .returning({ id: invoices.id }),
+      );
+      if (!result.ok) return result;
+      return ok(result.value.length);
     },
   };
 }
