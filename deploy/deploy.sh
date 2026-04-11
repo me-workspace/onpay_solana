@@ -19,19 +19,19 @@ set -euo pipefail
 
 REPO_DIR="/home/deploy/onpay_solana"
 APP_NAME="onpay"
-HEALTH_URL="http://127.0.0.1:3000/api/health"
+# OnPay binds to 3456 on this VPS because 3000/3001 are taken by other
+# Wira projects. Keep this in sync with ecosystem.config.cjs.
+HEALTH_URL="http://127.0.0.1:3456/api/health"
 
 echo "==> Deploying $APP_NAME"
 cd "$REPO_DIR"
 
-echo "==> git pull"
+echo "==> git reset --hard origin/main"
+# We treat the VPS working tree as disposable — the canonical source of
+# truth is origin/main. Any local diffs (executable bits from chmod,
+# one-off manual fixes, etc.) get wiped. Do NOT edit code on the VPS
+# directly; make the change, commit, push, then deploy.
 git fetch --quiet
-# If there are local changes something is wrong — refuse to clobber them.
-if ! git diff-index --quiet HEAD --; then
-  echo "ERROR: working tree has local changes. Refusing to deploy."
-  git status --short
-  exit 1
-fi
 git reset --hard origin/main
 
 echo "==> npm ci"
