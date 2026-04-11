@@ -7,12 +7,16 @@ import type { NextConfig } from "next";
  * untrusted scripts that could intercept wallet signing. Keep this list
  * minimal and audit every addition.
  */
+const isDev = process.env.NODE_ENV !== "production";
+
 const contentSecurityPolicy = [
   "default-src 'self'",
-  // Inline styles are required by Next.js in dev mode and Tailwind runtime.
+  // Inline styles are required by Next.js hydration + Tailwind runtime.
   "style-src 'self' 'unsafe-inline'",
-  // Scripts: self + inline for Next.js hydration. No third-party analytics.
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+  // Scripts: self + inline for Next.js hydration. `'unsafe-eval'` is
+  // only needed in dev mode (React Refresh, Next's fast refresh) — in
+  // production it must NOT be present for Lighthouse best-practices.
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
   // Fonts loaded from self.
   "font-src 'self' data:",
   // Images: self + data URIs (QR codes) + HTTPS (merchant logos).

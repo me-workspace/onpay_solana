@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 
-import { WalletProvider } from "@/components/providers/wallet-provider";
 import { publicEnv } from "@/config/env";
 
 import "./globals.css";
@@ -75,9 +74,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: ReactNode }): React.JSX.Element {
   return (
     <html lang="en">
-      <body>
-        <WalletProvider>{children}</WalletProvider>
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

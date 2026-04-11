@@ -213,7 +213,7 @@ export default function HomePage(): React.JSX.Element {
       </section>
 
       {/* CTA */}
-      <section className="border-t border-slate-100 bg-brand-600 py-20 text-white">
+      <section className="border-t border-slate-100 bg-brand-700 py-20 text-white">
         <div className="container-tight text-center">
           <h2 className="text-4xl font-bold tracking-tight">
             Start accepting crypto in 60 seconds.
