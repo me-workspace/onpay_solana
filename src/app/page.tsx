@@ -7,18 +7,17 @@
  */
 import Link from "next/link";
 
+import { Logo } from "@/components/brand/logo";
+
 export default function HomePage(): React.JSX.Element {
   return (
     <main className="min-h-screen bg-white">
       {/* Top nav */}
       <header className="border-b border-slate-100">
         <div className="container-tight flex items-center justify-between py-4">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-white">
-              <div className="h-4 w-4 rounded-full border-2 border-white" />
-            </div>
-            <span className="text-lg font-semibold text-slate-900">OnPay</span>
-          </div>
+          <Link href="/" aria-label="OnPay home" className="inline-flex items-center">
+            <Logo height={32} priority />
+          </Link>
           <nav className="flex items-center gap-6 text-sm">
             <a
               href="#how-it-works"

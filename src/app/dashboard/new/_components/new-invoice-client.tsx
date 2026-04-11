@@ -12,6 +12,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
+import { Logo } from "@/components/brand/logo";
 import { ConnectWalletButton } from "@/components/wallet/connect-button";
 import { ApiClientError, createInvoiceApi } from "@/lib/api-client";
 
@@ -64,8 +65,8 @@ export function NewInvoiceClient(): React.JSX.Element {
     <main className="min-h-screen bg-slate-50">
       <header className="border-b border-slate-200 bg-white">
         <div className="container-tight flex items-center justify-between py-4">
-          <Link href="/dashboard" className="text-lg font-semibold text-slate-900">
-            OnPay
+          <Link href="/dashboard" aria-label="OnPay home" className="inline-flex items-center">
+            <Logo height={30} priority />
           </Link>
           <ConnectWalletButton />
         </div>

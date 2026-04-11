@@ -17,6 +17,7 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
+import { Logo } from "@/components/brand/logo";
 import { ConnectWalletButton } from "@/components/wallet/connect-button";
 import { ApiClientError, upsertMerchantApi, type MerchantApi } from "@/lib/api-client";
 import { signInWithWallet } from "@/lib/wallet-auth-client";
@@ -102,8 +103,8 @@ export function DashboardClient(): React.JSX.Element {
     <main className="min-h-screen bg-slate-50">
       <header className="border-b border-slate-200 bg-white">
         <div className="container-tight flex items-center justify-between py-4">
-          <Link href="/" className="text-lg font-semibold text-slate-900">
-            OnPay
+          <Link href="/" aria-label="OnPay home" className="inline-flex items-center">
+            <Logo height={30} priority />
           </Link>
           <ConnectWalletButton />
         </div>
