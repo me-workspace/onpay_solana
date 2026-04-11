@@ -23,9 +23,15 @@ import { z } from "zod";
 
 import { serverEnv } from "@/config/env.server";
 import { apiError } from "@/lib/api-error";
-import { parseJsonBody, withErrorHandler } from "@/lib/http";
+import {
+  clientKeyFromRequest,
+  enforceRateLimit,
+  parseJsonBody,
+  withErrorHandler,
+} from "@/lib/http";
 import { signSession, verifyChallenge, SESSION_COOKIE_NAME } from "@/lib/jwt";
 import { logger } from "@/lib/logger";
+import { authRateLimiter } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,6 +49,7 @@ type VerifyResponse = {
 };
 
 export const POST = withErrorHandler(async (req: NextRequest) => {
+  enforceRateLimit(authRateLimiter.check(clientKeyFromRequest(req)), "auth/verify");
   const body = await parseJsonBody(req, bodySchema);
   const log = logger.child({ route: "POST /api/auth/verify" });
 

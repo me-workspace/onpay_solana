@@ -32,8 +32,14 @@ import { createMerchantRepository } from "@/infrastructure/db/merchant-repo";
 import { createJupiterQuoter } from "@/infrastructure/jupiter/quoter";
 import { createSolanaClient } from "@/infrastructure/solana/client";
 import { apiError } from "@/lib/api-error";
-import { parseJsonBody, withErrorHandler } from "@/lib/http";
+import {
+  clientKeyFromRequest,
+  enforceRateLimit,
+  parseJsonBody,
+  withErrorHandler,
+} from "@/lib/http";
 import { logger } from "@/lib/logger";
+import { txRateLimiter } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,7 +54,8 @@ type GetResponse = {
 };
 
 export const GET = withErrorHandler(
-  async (_req: NextRequest, context: { params: Promise<{ reference: string }> }) => {
+  async (req: NextRequest, context: { params: Promise<{ reference: string }> }) => {
+    enforceRateLimit(txRateLimiter.check(clientKeyFromRequest(req)), "tx/get");
     const { reference: rawReference } = await context.params;
     const referenceResult = parseInvoiceReference(rawReference);
     if (!referenceResult.ok) {
@@ -107,6 +114,7 @@ type PostResponse = {
 
 export const POST = withErrorHandler(
   async (req: NextRequest, context: { params: Promise<{ reference: string }> }) => {
+    enforceRateLimit(txRateLimiter.check(clientKeyFromRequest(req)), "tx/post");
     const { reference: rawReference } = await context.params;
     const referenceResult = parseInvoiceReference(rawReference);
     if (!referenceResult.ok) {

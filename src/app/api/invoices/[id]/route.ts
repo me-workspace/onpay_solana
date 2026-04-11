@@ -25,7 +25,8 @@ import { createInvoiceRepository } from "@/infrastructure/db/invoice-repo";
 import { createPaymentRepository } from "@/infrastructure/db/payment-repo";
 import { createSolanaClient } from "@/infrastructure/solana/client";
 import { apiError } from "@/lib/api-error";
-import { withErrorHandler } from "@/lib/http";
+import { clientKeyFromRequest, enforceRateLimit, withErrorHandler } from "@/lib/http";
+import { mutationRateLimiter } from "@/lib/rate-limit";
 import { buildPaymentUrl } from "@/lib/solana-pay-url";
 
 export const runtime = "nodejs";
@@ -80,7 +81,8 @@ function toResponse(invoice: Invoice): InvoiceResponse {
 }
 
 export const GET = withErrorHandler(
-  async (_req: NextRequest, context: { params: Promise<{ id: string }> }) => {
+  async (req: NextRequest, context: { params: Promise<{ id: string }> }) => {
+    enforceRateLimit(mutationRateLimiter.check(clientKeyFromRequest(req)), "invoices/get");
     const { id: rawId } = await context.params;
     const idResult = idSchema.safeParse(rawId);
     if (!idResult.success) {

@@ -17,8 +17,14 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
 import { apiError } from "@/lib/api-error";
-import { parseJsonBody, withErrorHandler } from "@/lib/http";
+import {
+  clientKeyFromRequest,
+  enforceRateLimit,
+  parseJsonBody,
+  withErrorHandler,
+} from "@/lib/http";
 import { signChallenge } from "@/lib/jwt";
+import { authRateLimiter } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,6 +39,7 @@ type NonceResponse = {
 };
 
 export const POST = withErrorHandler(async (req: NextRequest) => {
+  enforceRateLimit(authRateLimiter.check(clientKeyFromRequest(req)), "auth/nonce");
   const body = await parseJsonBody(req, bodySchema);
 
   // Validate the wallet address shape before issuing a challenge. We don't

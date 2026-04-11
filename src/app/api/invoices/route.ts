@@ -25,7 +25,13 @@ import { createInvoiceRepository } from "@/infrastructure/db/invoice-repo";
 import { createMerchantRepository } from "@/infrastructure/db/merchant-repo";
 import { apiError } from "@/lib/api-error";
 import { requireAuthenticatedWallet } from "@/lib/auth";
-import { parseJsonBody, withErrorHandler } from "@/lib/http";
+import {
+  clientKeyFromRequest,
+  enforceRateLimit,
+  parseJsonBody,
+  withErrorHandler,
+} from "@/lib/http";
+import { mutationRateLimiter } from "@/lib/rate-limit";
 import { buildPaymentUrl } from "@/lib/solana-pay-url";
 import { generateInvoiceReference } from "@/lib/solana-pubkey";
 
@@ -110,6 +116,7 @@ type ListResponse = {
 };
 
 export const GET = withErrorHandler(async (req: NextRequest) => {
+  enforceRateLimit(mutationRateLimiter.check(clientKeyFromRequest(req)), "invoices/list");
   const authenticatedWallet = await requireAuthenticatedWallet(req);
 
   const queryResult = listQuerySchema.safeParse({
@@ -156,6 +163,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 });
 
 export const POST = withErrorHandler(async (req: NextRequest) => {
+  enforceRateLimit(mutationRateLimiter.check(clientKeyFromRequest(req)), "invoices/create");
   const authenticatedWallet = await requireAuthenticatedWallet(req);
   const body = await parseJsonBody(req, createInvoiceSchema);
 

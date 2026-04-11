@@ -16,6 +16,7 @@ import type { z } from "zod";
 import { logger } from "@/lib/logger";
 
 import { ApiError, apiError } from "./api-error";
+import type { RateLimitResult } from "./rate-limit";
 
 /**
  * Parse a JSON request body and validate it against a Zod schema.
@@ -61,6 +62,42 @@ export function parseQueryParam<Schema extends z.ZodType<unknown>>(
     });
   }
   return result.data;
+}
+
+/**
+ * Derive a stable client key from a NextRequest for rate limiting.
+ *
+ * Priority:
+ *   1. `x-forwarded-for` (first entry) — set by Vercel, Nginx, etc.
+ *   2. `x-real-ip`
+ *   3. The literal "unknown" — safe fallback; all unknown sources share
+ *      a single bucket, which is fine for loose limits and bad for strict
+ *      ones, but never allows a single attacker to evade.
+ */
+export function clientKeyFromRequest(req: NextRequest): string {
+  const forwarded = req.headers.get("x-forwarded-for");
+  if (forwarded !== null && forwarded.length > 0) {
+    const first = forwarded.split(",")[0]?.trim();
+    if (first !== undefined && first.length > 0) return first;
+  }
+  const realIp = req.headers.get("x-real-ip");
+  if (realIp !== null && realIp.length > 0) return realIp;
+  return "unknown";
+}
+
+/**
+ * Enforce a rate limit and throw a 429 ApiError if the request is over
+ * the limit. The thrown error is caught by `withErrorHandler` and mapped
+ * into a standard JSON response with a `retry-after` hint in the body.
+ */
+export function enforceRateLimit(result: RateLimitResult, label: string): void {
+  if (result.allowed) return;
+  const retryAfterSeconds = Math.ceil(result.resetMs / 1000);
+  throw apiError(
+    "RATE_LIMITED",
+    `Too many requests to ${label}. Try again in ${String(retryAfterSeconds)}s.`,
+    { details: { retryAfterSeconds } },
+  );
 }
 
 /**

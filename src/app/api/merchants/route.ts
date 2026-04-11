@@ -16,7 +16,13 @@ import { getDb } from "@/infrastructure/db/client";
 import { createMerchantRepository } from "@/infrastructure/db/merchant-repo";
 import { apiError } from "@/lib/api-error";
 import { requireAuthenticatedWallet } from "@/lib/auth";
-import { parseJsonBody, withErrorHandler } from "@/lib/http";
+import {
+  clientKeyFromRequest,
+  enforceRateLimit,
+  parseJsonBody,
+  withErrorHandler,
+} from "@/lib/http";
+import { mutationRateLimiter } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -54,6 +60,7 @@ function toResponse(merchant: Merchant): MerchantResponse {
 }
 
 export const POST = withErrorHandler(async (req: NextRequest) => {
+  enforceRateLimit(mutationRateLimiter.check(clientKeyFromRequest(req)), "merchants");
   const authenticatedWallet = await requireAuthenticatedWallet(req);
   const body = await parseJsonBody(req, upsertSchema);
 
