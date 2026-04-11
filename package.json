@@ -37,7 +37,7 @@
     "drizzle-orm": "0.45.2",
     "jose": "5.9.6",
     "next": "15.5.15",
-    "pino": "9.6.0",
+    "pino": "10.3.1",
     "postgres": "3.4.5",
     "qrcode.react": "4.2.0",
     "react": "19.0.0",
