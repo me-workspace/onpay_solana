@@ -54,6 +54,10 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   productionBrowserSourceMaps: false,
   typedRoutes: true,
+  // Standalone output packages everything needed to run the app (pruned
+  // node_modules, server code, static assets) into .next/standalone and
+  // .next/static. This is what the VPS deploy script copies over SSH.
+  output: "standalone",
   // Fail the build on type errors and lint errors — never silently ship broken code.
   typescript: {
     ignoreBuildErrors: false,

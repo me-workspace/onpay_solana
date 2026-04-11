@@ -1,0 +1,54 @@
+name: Deploy to VPS
+
+# Deploy to the Hostinger VPS on every push to main, after CI passes.
+# Requires these repository secrets (set via `gh secret set`):
+#   - DEPLOY_HOST     (e.g. onpay.app)
+#   - DEPLOY_USER     (e.g. deploy)
+#   - DEPLOY_SSH_KEY  (private key authorized on the VPS)
+#
+# If any of those secrets are missing, this workflow is a no-op so it
+# doesn't block the merge.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: SSH deploy
+    runs-on: ubuntu-latest
+    # Wait for the CI workflow on the same SHA to succeed before deploying.
+    needs: []
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Check for required secrets
+        id: precheck
+        run: |
+          if [ -z "${{ secrets.DEPLOY_HOST }}" ] || [ -z "${{ secrets.DEPLOY_USER }}" ] || [ -z "${{ secrets.DEPLOY_SSH_KEY }}" ]; then
+            echo "Deploy secrets not configured — skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up SSH
+        if: steps.precheck.outputs.skip != 'true'
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Deploy
+        if: steps.precheck.outputs.skip != 'true'
+        run: |
+          ssh -i ~/.ssh/deploy_key "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            "cd /home/${{ secrets.DEPLOY_USER }}/onpay_solana && ./deploy/deploy.sh"
