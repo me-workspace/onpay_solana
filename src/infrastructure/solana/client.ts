@@ -9,7 +9,11 @@
  */
 import { Connection, PublicKey } from "@solana/web3.js";
 
-import type { AddressLookupTable, SolanaClient } from "@/application/ports/solana-client";
+import type {
+  AddressLookupTable,
+  ReferenceSignature,
+  SolanaClient,
+} from "@/application/ports/solana-client";
 import { serverEnv } from "@/config/env.server";
 import { domainError } from "@/domain/errors";
 import { err, ok, tryAsync, type Result } from "@/lib/result";
@@ -106,6 +110,27 @@ export function createSolanaClient(): SolanaClient {
         return tables;
       });
       return result;
+    },
+
+    async findSignaturesForReference(reference, limit = 10) {
+      const result = await runWithFallback("getSignaturesForAddress", async (conn) => {
+        const pubkey = new PublicKey(reference);
+        // `confirmed` commitment is the sweet spot: it's ~1 slot behind
+        // `finalized` (so latency is ~1-2 seconds instead of 12-13 seconds)
+        // but guaranteed to never be rolled back without a major reorg.
+        return conn.getSignaturesForAddress(pubkey, { limit }, "confirmed");
+      });
+      if (!result.ok) return err(result.error);
+      const signatures: ReferenceSignature[] = result.value
+        // Filter out transactions that failed on-chain — those aren't payments.
+        .filter((s) => s.err === null)
+        .map((s) => ({
+          signature: s.signature,
+          slot: s.slot,
+          blockTime: s.blockTime ?? null,
+          err: s.err,
+        }));
+      return ok(signatures);
     },
 
     async checkHealth() {

@@ -18,7 +18,7 @@ import type { Merchant } from "@/domain/entities/merchant";
 import type { DomainError } from "@/domain/errors";
 import { domainError } from "@/domain/errors";
 import { moneyFromDecimal } from "@/domain/value-objects/money";
-import { generateInvoiceReference } from "@/domain/value-objects/reference";
+import type { InvoiceReference } from "@/domain/value-objects/reference";
 import { flatMap, type Result } from "@/lib/result";
 
 import type { Clock } from "../ports/clock";
@@ -41,6 +41,12 @@ export type CreateInvoiceInput = {
 export type CreateInvoiceDeps = {
   readonly invoices: InvoiceRepository;
   readonly clock: Clock;
+  /**
+   * Generates a fresh invoice reference. Injected rather than imported
+   * directly from `@/lib/solana-pubkey` so unit tests can provide a
+   * deterministic fake without pulling in `@solana/web3.js`.
+   */
+  readonly generateReference: () => InvoiceReference;
 };
 
 export async function createInvoice(
@@ -82,7 +88,7 @@ export async function createInvoice(
   }
 
   // 5. Generate reference + compute expiry.
-  const reference = generateInvoiceReference();
+  const reference = deps.generateReference();
   const expiresAt = new Date(deps.clock.now().getTime() + input.ttlSeconds * 1000);
 
   // 6. Persist — let the repo Result propagate.

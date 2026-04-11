@@ -12,6 +12,7 @@ import type { CreateInvoiceRepoInput, InvoiceRepository } from "@/application/po
 import { createInvoice } from "@/application/use-cases/create-invoice";
 import type { Invoice, InvoiceId } from "@/domain/entities/invoice";
 import type { Merchant, MerchantId } from "@/domain/entities/merchant";
+import type { InvoiceReference } from "@/domain/value-objects/reference";
 import type { WalletAddress } from "@/domain/value-objects/wallet-address";
 import { isErr, isOk, unwrap } from "@/lib/result";
 import { ok, err } from "@/lib/result";
@@ -19,6 +20,12 @@ import { domainError } from "@/domain/errors";
 
 function makeFakeClock(fixed: Date): Clock {
   return { now: () => fixed };
+}
+
+/** Deterministic reference generator for tests — returns a well-formed base58 pubkey. */
+const FAKE_REFERENCE = "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM" as InvoiceReference;
+function fakeGenerator(): InvoiceReference {
+  return FAKE_REFERENCE;
 }
 
 function makeFakeRepo(): {
@@ -76,14 +83,14 @@ describe("createInvoice use case", () => {
         memo: null,
         ttlSeconds: 600,
       },
-      { invoices: repo, clock },
+      { invoices: repo, clock, generateReference: fakeGenerator },
     );
 
     expect(isOk(result)).toBe(true);
     const invoice = unwrap(result);
     expect(invoice.amount.amount).toBe(400n);
     expect(invoice.amount.currency).toBe("USD");
-    expect(invoice.reference).toHaveLength(32);
+    expect(invoice.reference).toBe(FAKE_REFERENCE);
     expect(invoice.expiresAt.toISOString()).toBe("2026-04-10T12:10:00.000Z");
     expect(lastCreate.input?.label).toBe("Iced Latte");
   });
@@ -102,7 +109,7 @@ describe("createInvoice use case", () => {
         memo: null,
         ttlSeconds: 600,
       },
-      { invoices: repo, clock },
+      { invoices: repo, clock, generateReference: fakeGenerator },
     );
 
     expect(isErr(result)).toBe(true);
@@ -126,7 +133,7 @@ describe("createInvoice use case", () => {
         memo: null,
         ttlSeconds: 600,
       },
-      { invoices: repo, clock },
+      { invoices: repo, clock, generateReference: fakeGenerator },
     );
 
     expect(isErr(result)).toBe(true);
@@ -146,7 +153,7 @@ describe("createInvoice use case", () => {
         memo: null,
         ttlSeconds: 30,
       },
-      { invoices: repo, clock },
+      { invoices: repo, clock, generateReference: fakeGenerator },
     );
     expect(isErr(tooShort)).toBe(true);
 
@@ -160,7 +167,7 @@ describe("createInvoice use case", () => {
         memo: null,
         ttlSeconds: 999_999,
       },
-      { invoices: repo, clock },
+      { invoices: repo, clock, generateReference: fakeGenerator },
     );
     expect(isErr(tooLong)).toBe(true);
   });
@@ -179,7 +186,7 @@ describe("createInvoice use case", () => {
         memo: null,
         ttlSeconds: 600,
       },
-      { invoices: repo, clock },
+      { invoices: repo, clock, generateReference: fakeGenerator },
     );
     expect(isErr(longLabel)).toBe(true);
 
@@ -193,7 +200,7 @@ describe("createInvoice use case", () => {
         memo: "a".repeat(501),
         ttlSeconds: 600,
       },
-      { invoices: repo, clock },
+      { invoices: repo, clock, generateReference: fakeGenerator },
     );
     expect(isErr(longMemo)).toBe(true);
   });
@@ -218,7 +225,7 @@ describe("createInvoice use case", () => {
         memo: null,
         ttlSeconds: 600,
       },
-      { invoices: failingRepo, clock },
+      { invoices: failingRepo, clock, generateReference: fakeGenerator },
     );
 
     expect(isErr(result)).toBe(true);

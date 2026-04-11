@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { InvoiceReference } from "@/domain/value-objects/reference";
 import { buildPaymentUrl } from "@/lib/solana-pay-url";
 
-const FAKE_REFERENCE = "0123456789abcdef0123456789abcdef" as InvoiceReference;
+const FAKE_REFERENCE = "BVNo8ftg2LkkssnWT4ZWdtoFaevnfD6ExYeramwM27pe" as InvoiceReference;
 
 describe("buildPaymentUrl", () => {
   it("builds a solana: URL pointing to the tx endpoint", () => {

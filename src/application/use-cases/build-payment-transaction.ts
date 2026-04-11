@@ -104,12 +104,25 @@ function deserializeInstruction(ix: SerializedInstruction): TransactionInstructi
   });
 }
 
-/** Build the on-chain memo instruction containing the invoice reference. */
-function buildMemoInstruction(referenceUtf8: string): TransactionInstruction {
+/**
+ * Build the on-chain memo instruction that carries the invoice reference.
+ *
+ * Two subtle but important design choices:
+ *
+ * 1. The reference is passed in as an **account key** (non-signer,
+ *    non-writable), not as instruction data. This is what makes the
+ *    payment discoverable via `getSignaturesForAddress(reference)` after
+ *    the tx lands on-chain — Solana indexes every account mentioned in a
+ *    transaction, so any RPC can answer "which txs touched this pubkey?"
+ *
+ * 2. The data payload is empty (or the reference echoed as a UTF-8 string
+ *    if we want human-readable Solscan display). Empty saves bytes.
+ */
+function buildMemoInstruction(reference: PublicKey): TransactionInstruction {
   return new TransactionInstruction({
     programId: MEMO_PROGRAM_ID,
-    keys: [],
-    data: Buffer.from(referenceUtf8, "utf8"),
+    keys: [{ pubkey: reference, isSigner: false, isWritable: false }],
+    data: Buffer.from(reference.toBase58(), "utf8"),
   });
 }
 
@@ -139,11 +152,12 @@ export async function buildPaymentTransaction(
       merchantWallet: new PublicKey(input.merchant.walletAddress),
       _inputMintCheck: new PublicKey(input.inputMint),
       outputMint: new PublicKey(input.merchant.settlementMint),
+      reference: new PublicKey(input.invoice.reference),
     }),
     (cause) => domainError("VALIDATION_FAILED", "Invalid pubkey", { cause }),
   );
   if (!parsed.ok) return parsed;
-  const { buyer, merchantWallet, outputMint } = parsed.value;
+  const { buyer, merchantWallet, outputMint, reference } = parsed.value;
 
   // 3. Compute the merchant's USDC ATA (deterministic, no RPC call needed).
   const merchantUsdcAtaResult = trySync(
@@ -219,7 +233,7 @@ export async function buildPaymentTransaction(
     ...swapIx.setupInstructions.map(deserializeInstruction),
     deserializeInstruction(swapIx.swapInstruction),
     ...swapIx.cleanupInstructions.map(deserializeInstruction),
-    buildMemoInstruction(input.invoice.reference),
+    buildMemoInstruction(reference),
   ];
 
   // 10. Compile to a v0 message and serialize.

@@ -38,6 +38,8 @@ const MERCHANT_WALLET = "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM";
 const USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
 const SOL_MINT = "So11111111111111111111111111111111111111112";
 const FAKE_BLOCKHASH = "EkSnNWid2cvwEVnVx9aBqawnmiCNiDgp3gUdkDPTKN1N";
+/** Real base58 pubkey used as a fake reference. Jupiter-style token account. */
+const FAKE_REFERENCE = "BVNo8ftg2LkkssnWT4ZWdtoFaevnfD6ExYeramwM27pe";
 
 // A made-up but well-formed program id for the fake "Jupiter swap" instruction.
 const FAKE_JUPITER_PROGRAM = "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4";
@@ -60,7 +62,7 @@ const usdcAmount: Money = { amount: 4_000_000n, currency: "USDC", decimals: 6 };
 const fakeInvoice: Invoice = {
   id: "inv_1" as InvoiceId,
   merchantId: fakeMerchant.id,
-  reference: "0123456789abcdef0123456789abcdef" as InvoiceReference,
+  reference: FAKE_REFERENCE as InvoiceReference,
   amount: usdcAmount,
   label: "Iced Latte",
   memo: null,
@@ -88,6 +90,7 @@ function makeFakeSolanaClient(): SolanaClient {
       }));
       return Promise.resolve(ok(tables));
     },
+    findSignaturesForReference: () => Promise.resolve(ok([])),
     checkHealth: () => Promise.resolve(ok(true as const)),
   };
 }

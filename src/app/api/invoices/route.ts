@@ -18,6 +18,7 @@ import { systemClock } from "@/application/ports/clock";
 import { createInvoice } from "@/application/use-cases/create-invoice";
 import { publicEnv } from "@/config/env";
 import { serverEnv } from "@/config/env.server";
+import { generateInvoiceReference } from "@/lib/solana-pubkey";
 import type { Invoice } from "@/domain/entities/invoice";
 import { parseWalletAddress } from "@/domain/value-objects/wallet-address";
 import { getDb } from "@/infrastructure/db/client";
@@ -129,7 +130,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       memo: body.memo ?? null,
       ttlSeconds: serverEnv.INVOICE_TTL_SECONDS,
     },
-    { invoices: invoiceRepo, clock: systemClock },
+    { invoices: invoiceRepo, clock: systemClock, generateReference: generateInvoiceReference },
   );
 
   if (!invoiceResult.ok) {
