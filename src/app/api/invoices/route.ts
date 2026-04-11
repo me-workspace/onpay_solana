@@ -93,6 +93,68 @@ function toResponse(invoice: Invoice): InvoiceResponse {
   };
 }
 
+// ---------------------------------------------------------------------------
+// GET — list the authenticated merchant's invoices.
+// ---------------------------------------------------------------------------
+
+const listQuerySchema = z.object({
+  status: z.enum(["pending", "paid", "expired", "failed"]).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
+type ListResponse = {
+  readonly invoices: readonly InvoiceResponse[];
+  readonly limit: number;
+  readonly offset: number;
+};
+
+export const GET = withErrorHandler(async (req: NextRequest) => {
+  const authenticatedWallet = await requireAuthenticatedWallet(req);
+
+  const queryResult = listQuerySchema.safeParse({
+    status: req.nextUrl.searchParams.get("status") ?? undefined,
+    limit: req.nextUrl.searchParams.get("limit") ?? undefined,
+    offset: req.nextUrl.searchParams.get("offset") ?? undefined,
+  });
+  if (!queryResult.success) {
+    throw apiError("INVALID_REQUEST", "Invalid list query parameters", {
+      details: queryResult.error.flatten(),
+    });
+  }
+  const { status, limit, offset } = queryResult.data;
+
+  const db = getDb();
+  const merchantRepo = createMerchantRepository(db);
+  const merchantResult = await merchantRepo.findByWallet(authenticatedWallet);
+  if (!merchantResult.ok) {
+    throw apiError("INTERNAL_ERROR", "Failed to fetch merchant");
+  }
+  if (merchantResult.value === null) {
+    // No merchant row yet — empty list is the correct answer, not 404.
+    return NextResponse.json({ invoices: [], limit, offset } satisfies ListResponse, {
+      status: 200,
+    });
+  }
+
+  const invoiceRepo = createInvoiceRepository(db);
+  const listResult = await invoiceRepo.listByMerchant(merchantResult.value.id, {
+    ...(status !== undefined ? { status } : {}),
+    limit,
+    offset,
+  });
+  if (!listResult.ok) {
+    throw apiError("INTERNAL_ERROR", "Failed to list invoices");
+  }
+
+  const response: ListResponse = {
+    invoices: listResult.value.map(toResponse),
+    limit,
+    offset,
+  };
+  return NextResponse.json(response, { status: 200 });
+});
+
 export const POST = withErrorHandler(async (req: NextRequest) => {
   const authenticatedWallet = await requireAuthenticatedWallet(req);
   const body = await parseJsonBody(req, createInvoiceSchema);

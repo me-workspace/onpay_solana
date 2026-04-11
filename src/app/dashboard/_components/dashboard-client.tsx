@@ -21,6 +21,8 @@ import { ConnectWalletButton } from "@/components/wallet/connect-button";
 import { ApiClientError, upsertMerchantApi, type MerchantApi } from "@/lib/api-client";
 import { signInWithWallet } from "@/lib/wallet-auth-client";
 
+import { InvoiceList } from "./invoice-list";
+
 type RegistrationState =
   | { kind: "idle" }
   | { kind: "authenticating" }
@@ -160,33 +162,37 @@ function ErrorState({ message }: { message: string }): React.JSX.Element {
 function ReadyState({ merchant }: { merchant: MerchantApi }): React.JSX.Element {
   const truncated = `${merchant.walletAddress.slice(0, 6)}…${merchant.walletAddress.slice(-6)}`;
   return (
-    <div className="grid gap-6 md:grid-cols-2">
-      <div className="rounded-2xl border border-slate-200 bg-white p-8">
-        <p className="text-sm font-medium uppercase tracking-wide text-slate-500">Welcome</p>
-        <h1 className="mt-1 text-2xl font-bold text-slate-900">
-          {merchant.businessName ?? "Your merchant account"}
-        </h1>
-        <p className="mt-2 font-mono text-xs text-slate-500">{truncated}</p>
-        <p className="mt-6 text-slate-600">
-          You&apos;re ready to accept payments. Settlement token:{" "}
-          <span className="font-mono text-xs">{merchant.settlementMint.slice(0, 6)}…</span>
-        </p>
+    <div className="space-y-6">
+      <div className="grid gap-6 md:grid-cols-2">
+        <div className="rounded-2xl border border-slate-200 bg-white p-8">
+          <p className="text-sm font-medium uppercase tracking-wide text-slate-500">Welcome</p>
+          <h1 className="mt-1 text-2xl font-bold text-slate-900">
+            {merchant.businessName ?? "Your merchant account"}
+          </h1>
+          <p className="mt-2 font-mono text-xs text-slate-500">{truncated}</p>
+          <p className="mt-6 text-slate-600">
+            You&apos;re ready to accept payments. Settlement token:{" "}
+            <span className="font-mono text-xs">{merchant.settlementMint.slice(0, 6)}…</span>
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-brand-200 bg-brand-50 p-8">
+          <p className="text-sm font-medium uppercase tracking-wide text-brand-700">Next step</p>
+          <h2 className="mt-1 text-2xl font-bold text-slate-900">Create a payment</h2>
+          <p className="mt-2 text-slate-700">
+            Generate a Solana Pay QR for any amount. Buyers scan, pick any token they hold, and you
+            receive USDC in seconds.
+          </p>
+          <Link
+            href="/dashboard/new"
+            className="mt-6 inline-flex items-center rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800"
+          >
+            New payment →
+          </Link>
+        </div>
       </div>
 
-      <div className="rounded-2xl border border-brand-200 bg-brand-50 p-8">
-        <p className="text-sm font-medium uppercase tracking-wide text-brand-700">Next step</p>
-        <h2 className="mt-1 text-2xl font-bold text-slate-900">Create a payment</h2>
-        <p className="mt-2 text-slate-700">
-          Generate a Solana Pay QR for any amount. Buyers scan, pick any token they hold, and you
-          receive USDC in seconds.
-        </p>
-        <Link
-          href="/dashboard/new"
-          className="mt-6 inline-flex items-center rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800"
-        >
-          New payment →
-        </Link>
-      </div>
+      <InvoiceList />
     </div>
   );
 }

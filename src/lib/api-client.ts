@@ -152,3 +152,29 @@ export function getInvoiceApi(id: string, signal?: AbortSignal): Promise<Invoice
   const init = signal !== undefined ? { signal } : undefined;
   return apiFetch<InvoiceApi>(`/api/invoices/${encodeURIComponent(id)}`, init);
 }
+
+export type ListInvoicesResponse = {
+  readonly invoices: readonly InvoiceApi[];
+  readonly limit: number;
+  readonly offset: number;
+};
+
+export type ListInvoicesQuery = {
+  readonly status?: "pending" | "paid" | "expired" | "failed";
+  readonly limit?: number;
+  readonly offset?: number;
+};
+
+export function listInvoicesApi(
+  query: ListInvoicesQuery = {},
+  signal?: AbortSignal,
+): Promise<ListInvoicesResponse> {
+  const params = new URLSearchParams();
+  if (query.status !== undefined) params.set("status", query.status);
+  if (query.limit !== undefined) params.set("limit", query.limit.toString());
+  if (query.offset !== undefined) params.set("offset", query.offset.toString());
+  const qs = params.toString();
+  const path = qs.length > 0 ? `/api/invoices?${qs}` : "/api/invoices";
+  const init = signal !== undefined ? { signal } : undefined;
+  return apiFetch<ListInvoicesResponse>(path, init);
+}
