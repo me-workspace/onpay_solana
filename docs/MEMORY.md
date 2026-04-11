@@ -2,7 +2,7 @@
 
 > This is the canonical project memory file. Read this first when resuming work on OnPay. Keep it updated as decisions change. Supersedes any conflicting information elsewhere.
 
-**Last updated:** 2026-04-10
+**Last updated:** 2026-04-11
 
 ---
 
@@ -185,4 +185,96 @@ This is the key differentiator from Stripe/Visa (high fees, fiat-only) and from 
 - `docs/PRD.md` — full product requirements (English)
 - `docs/PLAN.md` — implementation plan + timeline
 - `docs/HACKATHON_SUBMISSION.md` — Colosseum form answers
+- `docs/SECURITY.md` — threat model + accepted risks
+- `docs/WHITEPAPER.md` / `docs/WHITEPAPER.pdf` — full combined business/technical doc
 - Parent folder: original Bahasa PRD draft, OnPay logo, hackathon pass
+
+---
+
+## 11. Roadmap to submission (2026-04-11 → 2026-05-11)
+
+Canonical plan for what's left. Ordered by priority. Work through top-to-bottom; do NOT reorder without a decision logged above. Each item is sized in focused half-days. Check items off as commits land on `main`.
+
+### Current completion snapshot (2026-04-11)
+
+- [x] Production-grade foundation (TS strict, ESLint, Prettier, CI, Husky, Dependabot)
+- [x] Hexagonal architecture (domain / application / infrastructure / lib split)
+- [x] PostgreSQL + Drizzle schema + initial migration
+- [x] Critical spike — Jupiter v6 swap + ATA create + memo in a 1232-byte v0 VersionedTransaction (unit tested)
+- [x] 5 API endpoints: `/api/health`, `POST /api/merchants`, `POST|GET /api/invoices`, `GET|POST /api/tx/[reference]`
+- [x] Merchant dashboard UI (connect → register → create invoice → QR → polling)
+- [x] Wallet adapter integration (Phantom/Backpack/Solflare via Wallet Standard, no legacy umbrella)
+- [x] Hydration fix, stuck-state escape hatch, env split, pino logger fix
+- [x] 53 unit tests, all green
+- [x] Verified end-to-end locally against Docker Postgres (see `e86b3ec` commit)
+
+### 🔴 CRITICAL — must ship before submission
+
+1. **Payment confirmation loop** (`#1`, half day)
+   - Right now invoices never transition from `pending` to `paid`. The dashboard polls forever after a real payment lands on-chain.
+   - **Approach**: lazy on-chain check inside `GET /api/invoices/[id]`. Change `InvoiceReference` from nanoid to a base58 Solana pubkey (Keypair.generate).publicKey), add it as a non-signer, non-writable account to the memo instruction in the payment tx, and on each dashboard poll query `getSignaturesForAddress(ref)` — if found, update status to `paid` and insert a `Payment` row.
+   - **Why this approach**: no webhook infrastructure, no public URL needed, works on localhost and VPS identically, same latency as client polling.
+   - **Deliverables**: reference format change, Payment repo adapter, SolanaClient.findSignaturesForReference, confirmation check in GET route, unit tests with a fake SolanaClient.
+
+2. **Wallet signature auth** (`#2`, half day)
+   - Anyone can currently `POST /api/merchants` / `POST /api/invoices` claiming any wallet. Harmless for funds (non-custodial) but a red flag for code review.
+   - **Approach**: `POST /api/auth/nonce` returns a nonce, client signs `"OnPay login <nonce>"` with the wallet, `POST /api/auth/verify` verifies the ed25519 signature via `tweetnacl` and issues a short-lived JWT cookie. A per-route guard reads the cookie and injects the authenticated wallet pubkey.
+   - **Deliverables**: 2 new endpoints, middleware helper, cookie issuance, update merchant + invoice routes to read from cookie instead of trusting the request body, dashboard calls verify on wallet connect.
+
+3. **Invoice expiration sweeper** (`#8`, 2 hours)
+   - Pending invoices past `expires_at` stay `pending` forever.
+   - **Approach**: lazy — on every `GET /api/invoices/[id]` for a pending invoice past `expires_at`, mark expired before returning. Scheduled — `POST /api/cron/expire-invoices` with a shared-secret guard, does one SQL UPDATE. Production hits it every minute.
+
+4. **Jupiter mainnet-only bypass** (`#3`, 2 hours)
+   - `buildPaymentTransaction` fails on devnet because Jupiter has no devnet routes for most tokens.
+   - **Approach**: detect cluster in the use case. On devnet, skip the Jupiter call and build a direct SPL transfer from buyer → merchant. This is a "devnet test mode" that lets us verify the full pipeline without mainnet funds, then switch to real Jupiter for the mainnet smoke test.
+
+5. **Mainnet-beta smoke test** (`#5`, 1 hour)
+   - Put $2 of real SOL/USDC in a wallet, create a mainnet invoice, scan, pay, confirm merchant received USDC on-chain. Document the tx hash in the README with a Solscan link. This is the "proof it works" screenshot-ready evidence the judges want.
+
+### 🟠 HIGH — judges will notice
+
+6. **Transaction history list** (`#6`, 3 hours)
+   - `GET /api/invoices?status=&limit=&offset=` returns authenticated merchant's invoices. Dashboard adds a paginated table.
+
+7. **Marketing landing page** (`#4`, half day)
+   - Replace the 50-line placeholder at `/` with hero + how-it-works + features + CTA. First impression.
+
+8. **Rate limiting on public endpoints** (`#9`, 2 hours)
+   - In-memory token bucket (later Upstash). Per-IP + per-wallet. 429 on excess. Applied to all public mutation endpoints and `/api/tx/[ref]`.
+
+9. **Analytics cards** (`#7`, 2 hours)
+   - Dashboard top row: today / week / month totals + tx counts. Makes the dashboard feel like a product not a prototype.
+
+10. **Demo video (3 min) + pitch video (2 min)** (`#8`, full day)
+    - Required by Colosseum submission. Scripts drafted in `HACKATHON_SUBMISSION.md`. Recording needs Wira + camera + real mainnet payment.
+
+### 🟡 MEDIUM — polish if time
+
+- Mobile-responsive pass
+- Accessibility + Lighthouse ≥95
+- i18n wired up (EN + ID)
+- Empty states + skeletons
+- Error telemetry (Sentry free tier)
+- Merchant profile editing
+- Refund flow
+- Better invoice detail view with copy-to-clipboard
+
+### 🟢 Phase 2 — explicit non-goals for hackathon
+
+- Fiat off-ramp (IDR)
+- Subscription payments (Anchor program)
+- E-commerce plugins (Shopify / WooCommerce / Wix)
+- Loyalty cNFTs
+- Native mobile merchant app
+- Multi-merchant split payments
+
+### 🚢 Deployment (parallel track)
+
+- **Hostinger VPS deploy** (already in `project_onpay_deployment.md`): Next.js standalone output, PM2, Nginx, Certbot, UFW, GitHub Actions auto-deploy
+- **Why VPS not Vercel**: Wira already owns the VPS, saves ~$20/mo vs Vercel Pro, full control
+- **Gotcha**: bump `DATABASE_POOL_MAX` from 5 → 20 for long-lived Node servers (currently tuned for serverless)
+
+### Budget
+
+Target: **done by 2026-05-10** (one-day buffer before the 2026-05-11 hard cutoff). Today is 2026-04-11. That gives ~30 days for items 1-10 above plus polish. Budget ≈ 5 days focused work for everything on the must-ship list.
