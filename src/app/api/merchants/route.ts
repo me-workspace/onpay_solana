@@ -1,16 +1,10 @@
 /**
- * POST /api/merchants — upsert a merchant by wallet address.
+ * POST /api/merchants — upsert the authenticated merchant's profile.
  *
- * Called when a merchant connects their wallet to OnPay for the first time,
- * or updates their profile. Idempotent: calling with the same wallet address
- * returns the existing merchant with any non-null fields updated.
- *
- * NOTE: This endpoint does NOT verify that the caller actually owns the
- * wallet they claim. Wallet-signature verification is a separate iteration
- * (Week 2 of PLAN.md). For the foundation phase, we accept the trust model
- * that anyone can register any merchant — the worst case is they create a
- * profile pointing payments at someone else's wallet, which is harmless
- * because non-custodial means the funds always go to that wallet anyway.
+ * The wallet address is taken from the session cookie, NOT the request
+ * body. This prevents anyone from creating merchant rows for arbitrary
+ * wallets they don't control. A client must have already completed the
+ * /api/auth/nonce → /api/auth/verify flow to call this endpoint.
  */
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
@@ -21,13 +15,17 @@ import type { Merchant } from "@/domain/entities/merchant";
 import { getDb } from "@/infrastructure/db/client";
 import { createMerchantRepository } from "@/infrastructure/db/merchant-repo";
 import { apiError } from "@/lib/api-error";
+import { requireAuthenticatedWallet } from "@/lib/auth";
 import { parseJsonBody, withErrorHandler } from "@/lib/http";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/**
+ * Body only carries editable profile fields — the wallet address comes
+ * from the session, not the request.
+ */
 const upsertSchema = z.object({
-  walletAddress: z.string().min(32).max(44),
   businessName: z.string().max(200).nullable().optional().default(null),
   settlementMint: z.string().min(32).max(44).optional(),
   preferredLanguage: z.enum(["en", "id"]).optional().default("en"),
@@ -56,11 +54,12 @@ function toResponse(merchant: Merchant): MerchantResponse {
 }
 
 export const POST = withErrorHandler(async (req: NextRequest) => {
+  const authenticatedWallet = await requireAuthenticatedWallet(req);
   const body = await parseJsonBody(req, upsertSchema);
 
   const result = await upsertMerchant(
     {
-      walletAddress: body.walletAddress,
+      walletAddress: authenticatedWallet,
       businessName: body.businessName ?? null,
       settlementMint: body.settlementMint ?? serverEnv.DEFAULT_SETTLEMENT_MINT,
       preferredLanguage: body.preferredLanguage,

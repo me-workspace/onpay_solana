@@ -41,6 +41,10 @@ export default defineConfig({
       "@/config": path.resolve(rootDir, "./src/config"),
       "@/components": path.resolve(rootDir, "./src/components"),
       "@/tests": path.resolve(rootDir, "./tests"),
+      // `server-only` throws on import outside a Next.js server runtime.
+      // In Vitest we're in plain Node, so we stub it with an empty module.
+      // This is the same pattern Next's own test setup recommends.
+      "server-only": path.resolve(rootDir, "./tests/_stubs/server-only.ts"),
     },
   },
 });

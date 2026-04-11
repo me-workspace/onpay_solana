@@ -18,16 +18,16 @@ import { systemClock } from "@/application/ports/clock";
 import { createInvoice } from "@/application/use-cases/create-invoice";
 import { publicEnv } from "@/config/env";
 import { serverEnv } from "@/config/env.server";
-import { generateInvoiceReference } from "@/lib/solana-pubkey";
 import type { Invoice } from "@/domain/entities/invoice";
-import { parseWalletAddress } from "@/domain/value-objects/wallet-address";
+import { formatMoney } from "@/domain/value-objects/money";
 import { getDb } from "@/infrastructure/db/client";
 import { createInvoiceRepository } from "@/infrastructure/db/invoice-repo";
 import { createMerchantRepository } from "@/infrastructure/db/merchant-repo";
 import { apiError } from "@/lib/api-error";
+import { requireAuthenticatedWallet } from "@/lib/auth";
 import { parseJsonBody, withErrorHandler } from "@/lib/http";
-import { formatMoney } from "@/domain/value-objects/money";
 import { buildPaymentUrl } from "@/lib/solana-pay-url";
+import { generateInvoiceReference } from "@/lib/solana-pubkey";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,8 +38,12 @@ const SUPPORTED_CURRENCIES: Record<string, { decimals: number }> = {
   IDR: { decimals: 0 },
 };
 
+/**
+ * Body no longer carries the merchant wallet — we take it from the
+ * session cookie. Anyone calling this endpoint MUST be authenticated
+ * as the wallet they want the invoice credited to.
+ */
 const createInvoiceSchema = z.object({
-  merchantWallet: z.string().min(32).max(44),
   amountDecimal: z.string().min(1).max(20),
   currency: z.string().min(3).max(8).default("USD"),
   label: z.string().max(200).nullable().optional().default(null),
@@ -90,6 +94,7 @@ function toResponse(invoice: Invoice): InvoiceResponse {
 }
 
 export const POST = withErrorHandler(async (req: NextRequest) => {
+  const authenticatedWallet = await requireAuthenticatedWallet(req);
   const body = await parseJsonBody(req, createInvoiceSchema);
 
   // 1. Validate currency.
@@ -99,16 +104,10 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     throw apiError("INVALID_REQUEST", `Unsupported currency: ${currencyKey}`);
   }
 
-  // 2. Validate the merchant wallet.
-  const walletResult = parseWalletAddress(body.merchantWallet);
-  if (!walletResult.ok) {
-    throw apiError("INVALID_REQUEST", walletResult.error.message);
-  }
-
-  // 3. Look up the merchant.
+  // 2. Look up the merchant by authenticated wallet.
   const db = getDb();
   const merchantRepo = createMerchantRepository(db);
-  const merchantResult = await merchantRepo.findByWallet(walletResult.value);
+  const merchantResult = await merchantRepo.findByWallet(authenticatedWallet);
   if (!merchantResult.ok) {
     throw apiError("INTERNAL_ERROR", "Failed to fetch merchant", {
       cause: merchantResult.error,
@@ -118,7 +117,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     throw apiError("NOT_FOUND", "Merchant not registered. Call POST /api/merchants first.");
   }
 
-  // 4. Create the invoice via the use case.
+  // 3. Create the invoice via the use case.
   const invoiceRepo = createInvoiceRepository(db);
   const invoiceResult = await createInvoice(
     {

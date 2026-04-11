@@ -52,6 +52,17 @@ const serverEnvSchema = z.object({
   JUPITER_API_URL: z.string().url().default("https://quote-api.jup.ag/v6"),
   JUPITER_MAX_SLIPPAGE_BPS: z.coerce.number().int().min(1).max(1000).default(100),
 
+  // ---- Auth --------------------------------------------------------------
+  /**
+   * Secret used to sign JWT session cookies. Must be at least 32 chars of
+   * high-entropy random bytes. Generate with:
+   *   openssl rand -base64 48
+   */
+  JWT_SECRET: z.string().min(32, "JWT_SECRET must be at least 32 characters"),
+
+  /** How long a session JWT remains valid, in seconds. Default 24 hours. */
+  SESSION_TTL_SECONDS: z.coerce.number().int().min(60).max(604_800).default(86_400),
+
   // ---- Business config ---------------------------------------------------
   DEFAULT_SETTLEMENT_MINT: z.string().min(32).max(44),
 

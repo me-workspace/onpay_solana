@@ -47,7 +47,6 @@ export function NewInvoiceClient(): React.JSX.Element {
     setState({ kind: "submitting" });
     try {
       const invoice = await createInvoiceApi({
-        merchantWallet: publicKey.toBase58(),
         amountDecimal: amount,
         currency,
         label: label.length > 0 ? label : null,

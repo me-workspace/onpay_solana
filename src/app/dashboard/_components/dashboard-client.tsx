@@ -3,58 +3,97 @@
 /**
  * Dashboard client root.
  *
- * Watches the wallet connection state. When a wallet connects:
- *   1. Calls POST /api/merchants to upsert a merchant record (idempotent).
- *   2. Stores the merchant in local state.
- *   3. Renders the dashboard CTAs.
+ * Flow when a wallet connects:
+ *   1. Sign in with wallet: POST /api/auth/nonce → wallet signs the message
+ *      → POST /api/auth/verify → server sets httpOnly session cookie.
+ *   2. Upsert merchant profile: POST /api/merchants (auth-gated, reads
+ *      the wallet from the session cookie).
+ *   3. Render the dashboard with CTAs.
  *
- * When disconnected, shows an empty state with the connect button.
+ * If the wallet does not support signMessage (rare — Ledger via USB etc.)
+ * we surface a clear error rather than silently fall back to unsafe mode.
  */
 import { useWallet } from "@solana/wallet-adapter-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { ConnectWalletButton } from "@/components/wallet/connect-button";
 import { ApiClientError, upsertMerchantApi, type MerchantApi } from "@/lib/api-client";
+import { signInWithWallet } from "@/lib/wallet-auth-client";
 
 type RegistrationState =
   | { kind: "idle" }
+  | { kind: "authenticating" }
   | { kind: "registering" }
   | { kind: "ready"; merchant: MerchantApi }
   | { kind: "error"; message: string };
 
 export function DashboardClient(): React.JSX.Element {
-  const { publicKey, connected } = useWallet();
+  const walletCtx = useWallet();
+  const { publicKey, connected, signMessage } = walletCtx;
   const [state, setState] = useState<RegistrationState>({ kind: "idle" });
+  // Ref, not state, because we never want this to trigger re-renders.
+  // It's also the cleanest way to signal "this effect's cleanup fired"
+  // to the async callback the effect spawned.
+  const effectRunIdRef = useRef(0);
 
   useEffect(() => {
     if (!connected || publicKey === null) {
       setState({ kind: "idle" });
       return;
     }
+    if (signMessage === undefined) {
+      setState({
+        kind: "error",
+        message:
+          "This wallet does not support signMessage. Please use Phantom, Backpack, or Solflare.",
+      });
+      return;
+    }
 
     const walletAddress = publicKey.toBase58();
-    setState({ kind: "registering" });
+    // Capture signMessage into a local non-optional reference so the
+    // async closure below can use it without re-narrowing inside the
+    // try block (TypeScript loses optional-prop narrowing across awaits).
+    const signFn = signMessage;
 
-    let cancelled = false;
-    upsertMerchantApi({ walletAddress })
-      .then((merchant) => {
-        if (cancelled) return;
+    // Each time this effect fires, bump the run id. The async callback
+    // captures the current id at spawn time and checks against the ref's
+    // live value after every await — if they don't match, a newer effect
+    // has superseded it and we silently abort.
+    effectRunIdRef.current += 1;
+    const myRunId = effectRunIdRef.current;
+    const stillCurrent = (): boolean => effectRunIdRef.current === myRunId;
+
+    async function run(): Promise<void> {
+      try {
+        setState({ kind: "authenticating" });
+        await signInWithWallet(walletAddress, signFn);
+        if (!stillCurrent()) return;
+
+        setState({ kind: "registering" });
+        const merchant = await upsertMerchantApi({});
+        if (!stillCurrent()) return;
         setState({ kind: "ready", merchant });
-      })
-      .catch((cause: unknown) => {
-        if (cancelled) return;
+      } catch (cause: unknown) {
+        if (!stillCurrent()) return;
         const message =
           cause instanceof ApiClientError
             ? cause.message
-            : "Failed to register merchant. Check your connection.";
+            : cause instanceof Error
+              ? cause.message
+              : "Failed to sign in. Please try again.";
         setState({ kind: "error", message });
-      });
+      }
+    }
+
+    void run();
 
     return () => {
-      cancelled = true;
+      // Bumping invalidates the captured `myRunId` for the spawned callback.
+      effectRunIdRef.current += 1;
     };
-  }, [connected, publicKey]);
+  }, [connected, publicKey, signMessage]);
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -70,6 +109,8 @@ export function DashboardClient(): React.JSX.Element {
       <section className="container-tight py-12">
         {!connected ? (
           <DisconnectedState />
+        ) : state.kind === "authenticating" ? (
+          <LoadingState message="Sign the message in your wallet to continue…" />
         ) : state.kind === "registering" ? (
           <LoadingState message="Registering merchant…" />
         ) : state.kind === "error" ? (

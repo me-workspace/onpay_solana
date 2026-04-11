@@ -65,6 +65,8 @@ async function apiFetch<T>(
     method: init?.method ?? "GET",
     headers: { "content-type": "application/json", accept: "application/json" },
     cache: "no-store",
+    // Send the session cookie on every request so the server can read it.
+    credentials: "same-origin",
   };
   if (init?.body !== undefined) {
     requestInit.body = JSON.stringify(init.body);
@@ -87,16 +89,48 @@ async function apiFetch<T>(
 }
 
 // ---------------------------------------------------------------------------
+// Auth
+// ---------------------------------------------------------------------------
+export type NonceResponse = {
+  readonly message: string;
+  readonly challenge: string;
+};
+
+export function requestNonceApi(walletAddress: string): Promise<NonceResponse> {
+  return apiFetch<NonceResponse>("/api/auth/nonce", {
+    method: "POST",
+    body: { walletAddress },
+  });
+}
+
+export type VerifyBody = {
+  readonly walletAddress: string;
+  readonly challenge: string;
+  /** Base64-encoded 64-byte ed25519 signature. */
+  readonly signature: string;
+};
+
+export function verifyAuthApi(body: VerifyBody): Promise<{ ok: true; wallet: string }> {
+  return apiFetch<{ ok: true; wallet: string }>("/api/auth/verify", {
+    method: "POST",
+    body,
+  });
+}
+
+export function logoutApi(): Promise<{ ok: true }> {
+  return apiFetch<{ ok: true }>("/api/auth/logout", { method: "POST" });
+}
+
+// ---------------------------------------------------------------------------
 // Merchants
 // ---------------------------------------------------------------------------
 export type UpsertMerchantBody = {
-  readonly walletAddress: string;
   readonly businessName?: string | null;
   readonly settlementMint?: string;
   readonly preferredLanguage?: "en" | "id";
 };
 
-export function upsertMerchantApi(body: UpsertMerchantBody): Promise<MerchantApi> {
+export function upsertMerchantApi(body: UpsertMerchantBody = {}): Promise<MerchantApi> {
   return apiFetch<MerchantApi>("/api/merchants", { method: "POST", body });
 }
 
@@ -104,7 +138,6 @@ export function upsertMerchantApi(body: UpsertMerchantBody): Promise<MerchantApi
 // Invoices
 // ---------------------------------------------------------------------------
 export type CreateInvoiceBody = {
-  readonly merchantWallet: string;
   readonly amountDecimal: string;
   readonly currency?: string;
   readonly label?: string | null;
