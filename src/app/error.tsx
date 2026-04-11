@@ -28,7 +28,7 @@ export default function RouteError({
   return (
     <main className="min-h-screen">
       <section className="container-tight flex min-h-screen flex-col items-start justify-center py-16">
-        <p className="mb-4 text-sm font-semibold uppercase tracking-widest text-brand-600">Error</p>
+        <p className="mb-4 text-sm font-semibold uppercase tracking-widest text-brand-700">Error</p>
         <h1 className="text-4xl font-bold text-slate-900">Something went wrong.</h1>
         <p className="mt-4 max-w-lg text-slate-600">
           We hit an unexpected error while rendering this page. Please try again.

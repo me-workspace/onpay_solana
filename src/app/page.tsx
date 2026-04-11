@@ -98,7 +98,7 @@ export default function HomePage(): React.JSX.Element {
       {/* How it works */}
       <section id="how-it-works" className="container-tight py-20">
         <div className="max-w-2xl">
-          <p className="text-sm font-semibold uppercase tracking-widest text-brand-600">
+          <p className="text-sm font-semibold uppercase tracking-widest text-brand-700">
             How it works
           </p>
           <h2 className="mt-2 text-4xl font-bold tracking-tight text-slate-900">
@@ -133,7 +133,7 @@ export default function HomePage(): React.JSX.Element {
       <section id="features" className="border-t border-slate-100 bg-slate-50 py-20">
         <div className="container-tight">
           <div className="max-w-2xl">
-            <p className="text-sm font-semibold uppercase tracking-widest text-brand-600">
+            <p className="text-sm font-semibold uppercase tracking-widest text-brand-700">
               Built for real businesses
             </p>
             <h2 className="mt-2 text-4xl font-bold tracking-tight text-slate-900">
@@ -173,7 +173,7 @@ export default function HomePage(): React.JSX.Element {
       <section className="container-tight py-20">
         <div className="grid items-center gap-12 md:grid-cols-2">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-widest text-brand-600">
+            <p className="text-sm font-semibold uppercase tracking-widest text-brand-700">
               Why Solana
             </p>
             <h2 className="mt-2 text-4xl font-bold tracking-tight text-slate-900">
@@ -218,7 +218,7 @@ export default function HomePage(): React.JSX.Element {
           <h2 className="text-4xl font-bold tracking-tight">
             Start accepting crypto in 60 seconds.
           </h2>
-          <p className="mx-auto mt-4 max-w-xl text-lg text-brand-50">
+          <p className="mx-auto mt-4 max-w-xl text-lg text-white">
             Connect your Solana wallet and generate your first payment QR. No setup, no signup.
           </p>
           <div className="mt-8">
