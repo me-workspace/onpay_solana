@@ -1,11 +1,17 @@
 /**
  * Structured logger built on Pino.
  *
- * - In development: pretty-printed, colorized.
- * - In production: newline-delimited JSON, one line per log event.
+ * - In production: newline-delimited JSON via pino's default stdout writer.
+ * - In development: same JSON format, routed through pino-pretty synchronously
+ *   so the output stays readable in the terminal. We deliberately avoid the
+ *   worker-based transport (`transport: { target: 'pino-pretty' }`) because
+ *   Next.js dev mode's HMR invalidates modules repeatedly, which causes
+ *   pino-pretty's worker thread to exit — and then every subsequent
+ *   `logger.info()` throws "Error: the worker has exited" and takes down
+ *   the API route. The sync approach has the same output and zero worker
+ *   lifecycle issues.
  *
  * Always log structured fields, never string-interpolate data into messages.
- * That makes logs filterable, searchable, and safe to parse.
  *
  * @example
  * ```ts
@@ -20,7 +26,8 @@
  * ```
  */
 import pino from "pino";
-import type { LoggerOptions } from "pino";
+import type { DestinationStream, LoggerOptions } from "pino";
+import PinoPretty from "pino-pretty";
 
 import { serverEnv } from "@/config/env.server";
 
@@ -53,20 +60,16 @@ const baseConfig: LoggerOptions = {
   timestamp: pino.stdTimeFunctions.isoTime,
 };
 
-export const logger = pino(
-  isProduction
-    ? baseConfig
-    : {
-        ...baseConfig,
-        transport: {
-          target: "pino-pretty",
-          options: {
-            colorize: true,
-            translateTime: "SYS:HH:MM:ss.l",
-            ignore: "pid,hostname,app,env",
-          },
-        },
-      },
-);
+/** Build the dev-mode pretty stream synchronously (no worker thread). */
+function createPrettyStream(): DestinationStream {
+  return PinoPretty({
+    colorize: true,
+    translateTime: "SYS:HH:MM:ss.l",
+    ignore: "pid,hostname,app,env",
+    sync: true,
+  });
+}
+
+export const logger = isProduction ? pino(baseConfig) : pino(baseConfig, createPrettyStream());
 
 export type Logger = typeof logger;
