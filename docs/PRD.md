@@ -94,7 +94,7 @@ A buyer can pay with whatever SPL token they already hold. A merchant always rec
 ## 6. User journeys
 
 ### A. Merchant setup (first time)
-1. Visit `onpay.app` → click "Start accepting payments"
+1. Visit `onpay.id` → click "Start accepting payments"
 2. Connect Phantom / Backpack → dashboard loads
 3. Optional: set display name, business address, preferred settlement token (default: USDC)
 4. Done. Merchant can now create invoices.

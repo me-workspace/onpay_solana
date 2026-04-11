@@ -124,7 +124,7 @@ Let's walk through a real purchase, end to end, with zero jargon.
 
 ## The café owner's side (one-time setup)
 
-1. **The café owner, Kadek, visits** `onpay.app` on her phone or laptop.
+1. **The café owner, Kadek, visits** `onpay.id` on her phone or laptop.
 2. **She taps "Start accepting payments"** and a pop-up asks her to connect a wallet.
 3. **She has Phantom** (a free wallet app, like a digital version of her physical wallet) installed. She taps "Connect Phantom."
 4. **Phantom asks her to confirm.** She taps yes.
@@ -281,7 +281,7 @@ OnPay uses the most flexible version of Solana Pay called **"Transaction Request
 ## For the merchant (Kadek, café owner)
 
 ### Day 1 — Onboarding (under 60 seconds)
-1. Visits `onpay.app` on her phone
+1. Visits `onpay.id` on her phone
 2. Taps "Start accepting payments"
 3. Connects Phantom wallet (one tap)
 4. Enters business name: "Kopi Canggu"
@@ -797,7 +797,7 @@ OnPay is bootstrapped by a solo founder. Here's the full cost breakdown.
 
 | Item | Cost (USD) | Notes |
 |---|---|---|
-| Domain name (onpay.app or onpay.io) | $20 | One-year registration |
+| Domain name (onpay.id or onpay.io) | $20 | One-year registration |
 | Vercel Hobby plan | $0 | Free tier is sufficient for the hackathon |
 | PostgreSQL (Drizzle ORM) Free tier | $0 | Within limits for hackathon load |
 | Helius RPC (developer tier) | $0 | Free tier: 1M credits/month, enough for dev + demo |

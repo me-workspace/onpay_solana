@@ -2,7 +2,7 @@ name: Deploy to VPS
 
 # Deploy to the Hostinger VPS on every push to main, after CI passes.
 # Requires these repository secrets (set via `gh secret set`):
-#   - DEPLOY_HOST     (e.g. onpay.app)
+#   - DEPLOY_HOST     (e.g. onpay.id)
 #   - DEPLOY_USER     (e.g. deploy)
 #   - DEPLOY_SSH_KEY  (private key authorized on the VPS)
 #

@@ -3,7 +3,7 @@
 # OnPay — deploy script (runs ON the VPS, not locally).
 #
 # Usage:
-#   ssh deploy@onpay.app "cd onpay_solana && ./deploy/deploy.sh"
+#   ssh deploy@onpay.id "cd onpay_solana && ./deploy/deploy.sh"
 # or via GitHub Actions, which just SSHes in and runs this.
 #
 # Steps:

@@ -20,7 +20,7 @@
 
 ### OnPay state
 - [ ] Production build deployed to Hostinger VPS (see `docs/DEPLOYMENT.md`)
-- [ ] `onpay.app` (or whichever final URL) resolves with HTTPS
+- [ ] `onpay.id` (or whichever final URL) resolves with HTTPS
 - [ ] Mainnet-beta wallet with ≥ $3 SOL for the live transaction
 - [ ] A second wallet (merchant) already registered and visible on the dashboard
 - [ ] At least one previous paid invoice in the dashboard (real, from the smoke test)
@@ -44,7 +44,7 @@ Bali café interior, cup of coffee, handwritten menu.
 
 > "This is Kopi Canggu, a real café in Bali. The owner Kadek loses 2.5% of every sale to card processors, and she can't accept the crypto her customers are asking about. In about two minutes, we're going to fix both of those things on-screen."
 
-Cut to OnPay logo + tagline on the landing page at `onpay.app`.
+Cut to OnPay logo + tagline on the landing page at `onpay.id`.
 
 ---
 

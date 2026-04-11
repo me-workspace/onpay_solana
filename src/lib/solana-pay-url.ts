@@ -17,7 +17,7 @@
 import type { InvoiceReference } from "@/domain/value-objects/reference";
 
 export type BuildPaymentUrlInput = {
-  /** Public base URL of the OnPay deployment, e.g. https://onpay.app */
+  /** Public base URL of the OnPay deployment, e.g. https://onpay.id */
   readonly baseUrl: string;
   /** The invoice reference (path segment of the tx endpoint). */
   readonly reference: InvoiceReference;

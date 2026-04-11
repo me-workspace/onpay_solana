@@ -29,7 +29,7 @@ OnPay is a decentralized payment gateway built on Solana designed for seamless r
 
 ## PROJECT WEBSITE — PUBLIC
 
-> Placeholder until the Vercel landing page is live. Swap to the real domain (e.g., `https://onpay.app` or `https://onpay-solana.vercel.app`) before final submission.
+> Placeholder until the Vercel landing page is live. Swap to the real domain (e.g., `https://onpay.id` or `https://onpay-solana.vercel.app`) before final submission.
 
 ```
 https://github.com/me-workspace/onpay_solana

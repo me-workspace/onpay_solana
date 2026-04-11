@@ -11,7 +11,7 @@
 
 ## Prerequisites
 
-- [ ] VPS deployed per `docs/DEPLOYMENT.md` with `https://onpay.app` live
+- [ ] VPS deployed per `docs/DEPLOYMENT.md` with `https://onpay.id` live
       (or run against `http://localhost:3000` with `NEXT_PUBLIC_SOLANA_CLUSTER=mainnet-beta`)
 - [ ] Phantom mobile installed on your phone
 - [ ] Phantom browser extension installed on the same laptop
@@ -32,7 +32,7 @@
 ## Procedure
 
 ### 1. Register the merchant
-1. Open `https://onpay.app/dashboard` on the laptop
+1. Open `https://onpay.id/dashboard` on the laptop
 2. Connect the Phantom extension → sign the auth message → you're in
 3. Confirm the dashboard shows your merchant address in the welcome card
 

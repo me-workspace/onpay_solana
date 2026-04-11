@@ -8,22 +8,22 @@ const FAKE_REFERENCE = "BVNo8ftg2LkkssnWT4ZWdtoFaevnfD6ExYeramwM27pe" as Invoice
 describe("buildPaymentUrl", () => {
   it("builds a solana: URL pointing to the tx endpoint", () => {
     const url = buildPaymentUrl({
-      baseUrl: "https://onpay.app",
+      baseUrl: "https://onpay.id",
       reference: FAKE_REFERENCE,
     });
     expect(url).toContain("solana:");
-    expect(url).toContain(encodeURIComponent("https://onpay.app/api/tx/" + FAKE_REFERENCE));
+    expect(url).toContain(encodeURIComponent("https://onpay.id/api/tx/" + FAKE_REFERENCE));
   });
 
   it("strips trailing slashes from the base URL", () => {
-    const a = buildPaymentUrl({ baseUrl: "https://onpay.app/", reference: FAKE_REFERENCE });
-    const b = buildPaymentUrl({ baseUrl: "https://onpay.app", reference: FAKE_REFERENCE });
+    const a = buildPaymentUrl({ baseUrl: "https://onpay.id/", reference: FAKE_REFERENCE });
+    const b = buildPaymentUrl({ baseUrl: "https://onpay.id", reference: FAKE_REFERENCE });
     expect(a).toBe(b);
   });
 
   it("appends label and message as query params", () => {
     const url = buildPaymentUrl({
-      baseUrl: "https://onpay.app",
+      baseUrl: "https://onpay.id",
       reference: FAKE_REFERENCE,
       label: "Kopi Canggu",
       message: "Iced Latte x2",
@@ -34,7 +34,7 @@ describe("buildPaymentUrl", () => {
 
   it("omits empty label and message", () => {
     const url = buildPaymentUrl({
-      baseUrl: "https://onpay.app",
+      baseUrl: "https://onpay.id",
       reference: FAKE_REFERENCE,
       label: "",
       message: "",

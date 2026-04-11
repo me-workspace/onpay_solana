@@ -26,8 +26,8 @@ in `.github/workflows/deploy.yml`.
 - A public IPv4 address
 
 ### Domain
-- A-record pointing at the VPS IP (`onpay.app` or whatever you registered)
-- Optionally: `www.onpay.app` CNAME → `onpay.app`
+- A-record pointing at the VPS IP (`onpay.id` or whatever you registered)
+- Optionally: `www.onpay.id` CNAME → `onpay.id`
 
 ### Managed Postgres
 - Neon free tier is recommended — separates DB from app lifecycle
@@ -121,7 +121,7 @@ sudo nginx -t && sudo systemctl reload nginx
 
 ### 2.10 HTTPS via Certbot
 ```bash
-sudo certbot --nginx -d onpay.app -d www.onpay.app
+sudo certbot --nginx -d onpay.id -d www.onpay.id
 ```
 Certbot auto-edits the Nginx config to redirect HTTP→HTTPS and sets up a
 renewal timer.
@@ -133,7 +133,7 @@ crontab -e
 ```
 Add:
 ```
-* * * * * curl -s -X POST -H "x-cron-secret: $CRON_SECRET" https://onpay.app/api/cron/expire-invoices >> /home/deploy/onpay-cron.log 2>&1
+* * * * * curl -s -X POST -H "x-cron-secret: $CRON_SECRET" https://onpay.id/api/cron/expire-invoices >> /home/deploy/onpay-cron.log 2>&1
 ```
 (Replace `$CRON_SECRET` with the actual secret inline — cron doesn't expand env vars.)
 
@@ -143,7 +143,7 @@ Add:
 
 ### Option A: Manual
 ```bash
-ssh deploy@onpay.app
+ssh deploy@onpay.id
 cd onpay_solana
 ./deploy/deploy.sh
 ```
@@ -155,7 +155,7 @@ cd onpay_solana
 
 Set the required secrets once with `gh`:
 ```bash
-gh secret set DEPLOY_HOST      # e.g. onpay.app
+gh secret set DEPLOY_HOST      # e.g. onpay.id
 gh secret set DEPLOY_USER      # deploy
 gh secret set DEPLOY_SSH_KEY   # contents of ~/.ssh/id_ed25519 that's authorized on the VPS
 ```
@@ -167,7 +167,7 @@ gh secret set DEPLOY_SSH_KEY   # contents of ~/.ssh/id_ed25519 that's authorized
 PM2 keeps the previous process alive during reload, but if a deploy goes
 bad and the new process crashes, roll back to the previous commit:
 ```bash
-ssh deploy@onpay.app
+ssh deploy@onpay.id
 cd onpay_solana
 git log --oneline -5   # find the last known-good commit
 git reset --hard <sha>
@@ -186,7 +186,7 @@ Roll back manually with SQL if needed, then update the schema in code.
 - **Nginx access**: `sudo tail -f /var/log/nginx/access.log`
 - **Nginx errors**: `sudo tail -f /var/log/nginx/error.log`
 - **Cron output**: `tail -f /home/deploy/onpay-cron.log`
-- **System health**: `GET https://onpay.app/api/health`
+- **System health**: `GET https://onpay.id/api/health`
 
 ---
 
