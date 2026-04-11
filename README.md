@@ -131,6 +131,18 @@ All project documentation lives in [`/docs`](./docs):
 
 ---
 
+## Mainnet proof
+
+_To be filled in after the smoke test — see [`docs/MAINNET_SMOKE_TEST.md`](docs/MAINNET_SMOKE_TEST.md)._
+
+- **Transaction**: _coming soon_
+- **Date**: _coming soon_
+- **Amount**: 0.10 USDC
+- **Buyer paid with**: SOL (swapped to USDC via Jupiter inside the same transaction)
+- **Merchant received**: USDC directly in their associated token account, non-custodial
+
+---
+
 ## Hackathon context
 
 - **Event:** Solana Frontier Hackathon (Colosseum)
