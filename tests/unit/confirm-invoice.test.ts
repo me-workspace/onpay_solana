@@ -62,6 +62,7 @@ function makeInvoicesRepo(updatedTo: InvoiceStatus = "paid"): InvoicesFake {
       );
     },
     expirePendingBefore: () => Promise.resolve(ok(0)),
+    sumPaidByMerchantSince: () => Promise.resolve(ok({ totalRaw: 0n, count: 0 })),
   };
   return Object.assign(base, state);
 }

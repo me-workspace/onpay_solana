@@ -9,7 +9,7 @@
  * All methods return `Result<T, DomainError>` so upstream errors
  * surface explicitly to the application layer.
  */
-import { and, desc, eq, lt } from "drizzle-orm";
+import { and, desc, eq, gte, lt } from "drizzle-orm";
 
 import type {
   CreateInvoiceRepoInput,
@@ -158,6 +158,35 @@ export function createInvoiceRepository(db: Database): InvoiceRepository {
       );
       if (!result.ok) return result;
       return ok(result.value.length);
+    },
+
+    async sumPaidByMerchantSince(
+      merchantId: MerchantId,
+      currency: string,
+      since: Date,
+    ): Promise<Result<{ totalRaw: bigint; count: number }, DomainError>> {
+      // Drizzle's aggregate helpers don't cleanly compose with text-as-bigint
+      // columns, so we do the sum in JS — it's fast enough for hundreds of
+      // rows per merchant and avoids runtime SQL casting gotchas.
+      const result = await runQuery("sumPaidByMerchantSince", () =>
+        db
+          .select({ amountRaw: invoices.amountRaw })
+          .from(invoices)
+          .where(
+            and(
+              eq(invoices.merchantId, merchantId),
+              eq(invoices.status, "paid"),
+              eq(invoices.currency, currency),
+              gte(invoices.createdAt, since),
+            ),
+          ),
+      );
+      if (!result.ok) return result;
+      let totalRaw = 0n;
+      for (const row of result.value) {
+        totalRaw += BigInt(row.amountRaw);
+      }
+      return ok({ totalRaw, count: result.value.length });
     },
   };
 }

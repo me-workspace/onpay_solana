@@ -26,6 +26,17 @@ export type InvoiceRepository = {
    * Returns the count of rows updated.
    */
   expirePendingBefore(before: Date): Promise<Result<number, DomainError>>;
+
+  /**
+   * Sum the raw amounts of all paid invoices for a merchant, filtered to
+   * a specific currency and a minimum createdAt. Returns the bigint total
+   * and the count. Used by the dashboard analytics cards.
+   */
+  sumPaidByMerchantSince(
+    merchantId: MerchantId,
+    currency: string,
+    since: Date,
+  ): Promise<Result<{ totalRaw: bigint; count: number }, DomainError>>;
 };
 
 export type CreateInvoiceRepoInput = {

@@ -22,6 +22,7 @@ import { ApiClientError, upsertMerchantApi, type MerchantApi } from "@/lib/api-c
 import { signInWithWallet } from "@/lib/wallet-auth-client";
 
 import { InvoiceList } from "./invoice-list";
+import { StatsCards } from "./stats-cards";
 
 type RegistrationState =
   | { kind: "idle" }
@@ -163,29 +164,27 @@ function ReadyState({ merchant }: { merchant: MerchantApi }): React.JSX.Element 
   const truncated = `${merchant.walletAddress.slice(0, 6)}…${merchant.walletAddress.slice(-6)}`;
   return (
     <div className="space-y-6">
-      <div className="grid gap-6 md:grid-cols-2">
-        <div className="rounded-2xl border border-slate-200 bg-white p-8">
-          <p className="text-sm font-medium uppercase tracking-wide text-slate-500">Welcome</p>
-          <h1 className="mt-1 text-2xl font-bold text-slate-900">
-            {merchant.businessName ?? "Your merchant account"}
-          </h1>
-          <p className="mt-2 font-mono text-xs text-slate-500">{truncated}</p>
-          <p className="mt-6 text-slate-600">
-            You&apos;re ready to accept payments. Settlement token:{" "}
-            <span className="font-mono text-xs">{merchant.settlementMint.slice(0, 6)}…</span>
-          </p>
-        </div>
+      <div>
+        <p className="text-sm font-medium uppercase tracking-wide text-slate-500">Welcome back</p>
+        <h1 className="mt-1 text-3xl font-bold text-slate-900">
+          {merchant.businessName ?? "Your merchant account"}
+        </h1>
+        <p className="mt-1 font-mono text-xs text-slate-500">{truncated}</p>
+      </div>
 
-        <div className="rounded-2xl border border-brand-200 bg-brand-50 p-8">
-          <p className="text-sm font-medium uppercase tracking-wide text-brand-700">Next step</p>
-          <h2 className="mt-1 text-2xl font-bold text-slate-900">Create a payment</h2>
-          <p className="mt-2 text-slate-700">
-            Generate a Solana Pay QR for any amount. Buyers scan, pick any token they hold, and you
-            receive USDC in seconds.
-          </p>
+      <StatsCards />
+
+      <div className="rounded-2xl border border-brand-200 bg-brand-50 p-6">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">Create a payment</h2>
+            <p className="mt-1 text-sm text-slate-700">
+              Generate a Solana Pay QR for any amount. Buyers pay with any token; you receive USDC.
+            </p>
+          </div>
           <Link
             href="/dashboard/new"
-            className="mt-6 inline-flex items-center rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800"
+            className="inline-flex shrink-0 items-center rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800"
           >
             New payment →
           </Link>

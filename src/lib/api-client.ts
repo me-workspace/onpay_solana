@@ -135,6 +135,28 @@ export function upsertMerchantApi(body: UpsertMerchantBody = {}): Promise<Mercha
 }
 
 // ---------------------------------------------------------------------------
+// Stats
+// ---------------------------------------------------------------------------
+export type StatCard = {
+  readonly label: string;
+  readonly totalFormatted: string;
+  readonly totalRaw: string;
+  readonly count: number;
+};
+
+export type StatsResponse = {
+  readonly currency: string;
+  readonly today: StatCard;
+  readonly week: StatCard;
+  readonly month: StatCard;
+};
+
+export function getMerchantStatsApi(signal?: AbortSignal): Promise<StatsResponse> {
+  const init = signal !== undefined ? { signal } : undefined;
+  return apiFetch<StatsResponse>("/api/merchants/me/stats", init);
+}
+
+// ---------------------------------------------------------------------------
 // Invoices
 // ---------------------------------------------------------------------------
 export type CreateInvoiceBody = {
