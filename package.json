@@ -41,7 +41,7 @@
     "postgres": "3.4.5",
     "qrcode.react": "4.2.0",
     "react": "19.0.0",
-    "react-dom": "19.0.0",
+    "react-dom": "19.2.5",
     "server-only": "0.0.1",
     "tweetnacl": "1.0.3",
     "zod": "3.24.1"
@@ -52,7 +52,7 @@
     "@eslint/js": "9.39.4",
     "@types/node": "22.10.7",
     "@types/react": "19.0.7",
-    "@types/react-dom": "19.0.3",
+    "@types/react-dom": "19.2.3",
     "@typescript-eslint/eslint-plugin": "8.21.0",
     "@typescript-eslint/parser": "8.21.0",
     "autoprefixer": "10.4.20",
@@ -77,6 +77,6 @@
       "esbuild": "0.25.12"
     },
     "@types/react": "19.0.7",
-    "@types/react-dom": "19.0.3"
+    "@types/react-dom": "19.2.3"
   }
 }
