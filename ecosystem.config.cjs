@@ -20,7 +20,11 @@ module.exports = {
       // Load the production env. PM2 reads this file at start/reload time.
       env: {
         NODE_ENV: "production",
-        PORT: "3000",
+        // Ports 3000 and 3001 on the prod VPS are taken by Wira's other
+        // projects (soft-render.myskillset.me etc.). OnPay runs on 3456.
+        // Don't change this without also updating the nginx vhost at
+        // /etc/nginx/sites-available/onpay.id on the VPS.
+        PORT: "3456",
         HOSTNAME: "127.0.0.1",
       },
       // Source the rest of the env from .env.production via PM2's env file loader

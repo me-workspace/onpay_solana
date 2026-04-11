@@ -32,6 +32,7 @@ next-env.d.ts
 **/*secret*.txt
 **/*.pem
 **/*.key
+**/onpay_vps_secrets.json
 
 # Vercel
 .vercel

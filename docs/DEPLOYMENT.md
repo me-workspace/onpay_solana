@@ -1,206 +1,210 @@
-# OnPay — Hostinger VPS deployment
+# OnPay — Production deployment (Hostinger VPS)
 
-> Target: single Node 22 process behind Nginx + Let's Encrypt, supervised
-> by PM2, backed by a managed Neon (or RDS) Postgres. Zero Vercel, zero
-> serverless cold starts, full control.
+> **Live at:** https://onpay.id
+> **Deployed:** 2026-04-11
+> **Host:** Hostinger VPS `76.13.23.29` (Ubuntu 24.04, WordOps stack)
+> **Port:** OnPay runs on `127.0.0.1:3456` behind WordOps's `nginx-custom`
+> **Database:** Local PostgreSQL 16, database `onpay`, role `onpay`
+> **Solana cluster:** `devnet` (switch to mainnet-beta before the smoke test)
 
-This document is the canonical runbook for provisioning and updating the
-production deployment. Follow it end-to-end the first time; after that,
-deploys are a single `git push` that triggers the GitHub Actions workflow
-in `.github/workflows/deploy.yml`.
-
----
-
-## 1. Prerequisites
-
-### On your laptop
-- SSH key (`~/.ssh/id_ed25519` or similar) added to the Hostinger VPS's
-  `~/.ssh/authorized_keys` for the `deploy` user (not root).
-- `gh` CLI logged in (for setting GitHub secrets).
-
-### VPS specs (one-time order from Hostinger)
-- Ubuntu 24.04 LTS
-- At least 2 vCPU, 4 GB RAM (OnPay + Node + Nginx fits comfortably; the
-  Solana RPC calls are the memory spike)
-- 40 GB SSD
-- A public IPv4 address
-
-### Domain
-- A-record pointing at the VPS IP (`onpay.id` or whatever you registered)
-- Optionally: `www.onpay.id` CNAME → `onpay.id`
-
-### Managed Postgres
-- Neon free tier is recommended — separates DB from app lifecycle
-- Copy the connection string (keep `?sslmode=require`)
-- Keep `DATABASE_POOL_MAX=20` for a long-lived server (vs `5` for serverless)
+This document reflects the actual production state after the initial
+bootstrap on 2026-04-11. Use it as the runbook for subsequent deploys,
+rollbacks, and incident recovery.
 
 ---
 
-## 2. One-time VPS bootstrap
+## 1. VPS topology
 
-SSH in as root the first time Hostinger gives you the machine.
+The VPS is a shared host running multiple Wira projects via **WordOps**
+(a WordPress/nginx management stack). OnPay is a **reverse-proxy site**
+inside this stack; it does NOT own the nginx installation. Coexisting
+projects on the same box:
 
-### 2.1 Create a non-root user
-```bash
-adduser deploy
-usermod -aG sudo deploy
-rsync --archive --chown=deploy:deploy ~/.ssh /home/deploy
-```
+- `soft-render.myskillset.me` — SLA Architectural AI (Node on port 3000)
+- `sla-development.myskillset.me` — SLA development site
+- `22222` — WordOps admin panel (HTTPS on :22222)
+- `onpay.id` / `www.onpay.id` — this project
 
-### 2.2 Lock down SSH
-```bash
-# /etc/ssh/sshd_config
-PermitRootLogin no
-PasswordAuthentication no
-AllowUsers deploy
-```
-```bash
-systemctl restart ssh
-```
+**Important**: do NOT run `apt install nginx` or `apt install nginx-full`
+on this host. Those packages will displace WordOps's `nginx-custom`
+package, which has compiled-in modules (`more_set_headers`, etc.) that
+the other sites' configs depend on. An earlier bootstrap attempt did
+exactly this and took all three sites offline until recovery — see the
+`_recover_and_deploy.py` script for the repair procedure.
 
-### 2.3 Firewall (UFW)
-```bash
-ufw default deny incoming
-ufw default allow outgoing
-ufw allow 22/tcp
-ufw allow 80/tcp
-ufw allow 443/tcp
-ufw enable
-```
+---
 
-### 2.4 Install Node 22, PM2, Nginx, Certbot
-Log out and back in as `deploy`, then:
-```bash
-# Node 22 via nodesource
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-sudo apt install -y nodejs nginx certbot python3-certbot-nginx
-sudo npm install -g pm2
-pm2 startup systemd -u deploy --hp /home/deploy
-# ^ PM2 will print a `sudo systemctl enable ...` command — run it.
-```
+## 2. What's on the box
 
-### 2.5 Clone the repo as the deploy user
-```bash
-cd /home/deploy
-git clone https://github.com/me-workspace/onpay_solana.git
-cd onpay_solana
-```
-
-### 2.6 Create `.env.production` with the real values
-```bash
-sudo install -m 600 -o deploy -g deploy /dev/null /home/deploy/onpay_solana/.env.production
-nano /home/deploy/onpay_solana/.env.production
-```
-Paste in the real production values (DATABASE_URL, SOLANA_RPC_URL,
-JWT_SECRET, CRON_SECRET, etc.). See `.env.example` for the full schema.
-
-**NEVER** commit this file — it's gitignored.
-
-### 2.7 First build + first migration
-```bash
-cd /home/deploy/onpay_solana
-npm ci
-npm run db:migrate
-npm run build
-```
-
-### 2.8 Start under PM2
-```bash
-pm2 start ecosystem.config.cjs
-pm2 save
-```
-
-### 2.9 Nginx reverse proxy
-See `deploy/nginx.conf` in this repo. Copy it to `/etc/nginx/sites-available/onpay`,
-symlink to `sites-enabled/`, test, reload:
-```bash
-sudo cp /home/deploy/onpay_solana/deploy/nginx.conf /etc/nginx/sites-available/onpay
-sudo ln -s /etc/nginx/sites-available/onpay /etc/nginx/sites-enabled/
-sudo nginx -t && sudo systemctl reload nginx
-```
-
-### 2.10 HTTPS via Certbot
-```bash
-sudo certbot --nginx -d onpay.id -d www.onpay.id
-```
-Certbot auto-edits the Nginx config to redirect HTTP→HTTPS and sets up a
-renewal timer.
-
-### 2.11 Configure cron for expiration sweeper
-As the `deploy` user:
-```bash
-crontab -e
-```
-Add:
-```
-* * * * * curl -s -X POST -H "x-cron-secret: $CRON_SECRET" https://onpay.id/api/cron/expire-invoices >> /home/deploy/onpay-cron.log 2>&1
-```
-(Replace `$CRON_SECRET` with the actual secret inline — cron doesn't expand env vars.)
+- **Ubuntu 24.04**, Node 22, PM2, Postgres 16, WordOps 3.22+
+- **Nginx**: `nginx-custom` (WordOps flavor), configs in `/etc/nginx/sites-enabled/`
+- **OnPay app**: `/home/deploy/onpay_solana/` — cloned from `origin/main`
+- **PM2 process**: `onpay`, user `deploy`, binds to `127.0.0.1:3456`, `ecosystem.config.cjs` at repo root
+- **Certs**: `/etc/letsencrypt/live/onpay.id/` issued via `certbot certonly --webroot` — auto-renews via the standard certbot systemd timer
+- **DB**: PostgreSQL listening on `127.0.0.1:5432`, database `onpay`, role `onpay` with password stored in `.env.production` (and a backup at `~/.ssh/onpay_vps_secrets.json` on the operator's laptop)
+- **Env file**: `/home/deploy/onpay_solana/.env.production` (chmod 600, never committed)
 
 ---
 
 ## 3. Recurring deploys
 
-### Option A: Manual
+### Option A — Manual (current default)
+
 ```bash
-ssh deploy@onpay.id
+ssh deploy@76.13.23.29
 cd onpay_solana
 ./deploy/deploy.sh
 ```
 
-### Option B: GitHub Actions (recommended)
-`.github/workflows/deploy.yml` runs on push to `main`:
-1. SSH into the VPS using `DEPLOY_SSH_KEY` (GitHub secret)
-2. Run `./deploy/deploy.sh` remotely
+The `deploy.sh` script pulls `origin/main`, installs deps, runs
+migrations, rebuilds the standalone bundle, copies static assets,
+reloads PM2, and health-checks the new process. Rolls back cleanly
+if the health check fails.
 
-Set the required secrets once with `gh`:
+### Option B — GitHub Actions auto-deploy
+
+`.github/workflows/deploy.yml` triggers on push to `main`. It's a no-op
+until these secrets are set with `gh secret set`:
+
 ```bash
-gh secret set DEPLOY_HOST      # e.g. onpay.id
+gh secret set DEPLOY_HOST      # 76.13.23.29
 gh secret set DEPLOY_USER      # deploy
-gh secret set DEPLOY_SSH_KEY   # contents of ~/.ssh/id_ed25519 that's authorized on the VPS
+gh secret set DEPLOY_SSH_KEY   # contents of ~/.ssh/onpay_vps_ed25519
 ```
 
 ---
 
-## 4. Rollback
+## 4. First-time bootstrap (already done, reference only)
 
-PM2 keeps the previous process alive during reload, but if a deploy goes
-bad and the new process crashes, roll back to the previous commit:
+The `deploy/_recover_and_deploy.py` script handles the full bootstrap in
+one invocation. It assumes a WordOps VPS and preserves coexisting sites.
+
 ```bash
-ssh deploy@onpay.id
+VPS_ROOT_PASSWORD='...' python deploy/_recover_and_deploy.py
+```
+
+Stages:
+1. Repair nginx if it was broken by an earlier upstream install
+2. Create the `deploy` user with sudo + install the ed25519 key
+3. Create the `onpay` Postgres role + database
+4. Clone the repo as `deploy`, write `.env.production`, install, migrate, build
+5. Start PM2
+
+Then, **NOT via `wo site create`** (which is buggy), use
+`deploy/_certbot_webroot.py` to add the nginx vhost and provision
+HTTPS:
+
+```bash
+VPS_ROOT_PASSWORD='...' python deploy/_certbot_webroot.py
+```
+
+This script:
+1. Prepares `/var/www/html/.well-known/acme-challenge/`
+2. Issues a Let's Encrypt cert via `certbot certonly --webroot` (no nginx plugin required)
+3. Writes `/etc/nginx/sites-available/onpay.id` with the full HTTPS server block
+4. Tests + reloads nginx
+5. Verifies `https://onpay.id/api/health` returns 200
+
+### Why not `wo site create --proxy=[...] -le`?
+
+WordOps's site creation command threw "There was a serious error
+encountered..." mid-flow, rolled back the config, and then corrupted
+its internal state by editing `/var/www/22222/conf/nginx/ssl.conf` to
+reference a vhost that no longer existed. The manual path is simpler
+and doesn't touch WordOps's own admin state.
+
+---
+
+## 5. Rollback
+
+### App rollback
+
+```bash
+ssh deploy@76.13.23.29
 cd onpay_solana
-git log --oneline -5   # find the last known-good commit
+git log --oneline -5    # find the last known-good commit
 git reset --hard <sha>
 ./deploy/deploy.sh
 ```
 
-For DB migration rollbacks, drizzle-kit does not generate down migrations.
-Roll back manually with SQL if needed, then update the schema in code.
-**Test migrations on a staging DB before touching prod.**
+### Cert rollback
+
+Let's Encrypt certs are versioned. Previous archives live in
+`/etc/letsencrypt/archive/onpay.id/`. Symlinks in `/etc/letsencrypt/live/`
+point at the current active version.
+
+### Nginx rollback
+
+The `_recover_and_deploy.py` script is idempotent — rerun it if nginx
+state gets corrupted. It reinstalls `nginx-custom` and validates other
+sites are still up.
+
+### DB rollback
+
+drizzle-kit does not generate down migrations. Roll back manually via SQL.
+**Always test migrations on a dev Postgres before touching prod.**
 
 ---
 
-## 5. Observability
+## 6. Observability
 
-- **App logs**: `pm2 logs onpay` or `tail -f ~/.pm2/logs/onpay-out.log`
-- **Nginx access**: `sudo tail -f /var/log/nginx/access.log`
-- **Nginx errors**: `sudo tail -f /var/log/nginx/error.log`
-- **Cron output**: `tail -f /home/deploy/onpay-cron.log`
-- **System health**: `GET https://onpay.id/api/health`
+```bash
+# App logs
+ssh deploy@76.13.23.29
+pm2 logs onpay --lines 100
+
+# Nginx access
+sudo tail -f /var/log/nginx/onpay.id.access.log
+
+# Nginx errors
+sudo tail -f /var/log/nginx/onpay.id.error.log
+
+# App health
+curl https://onpay.id/api/health
+
+# Full PM2 status
+pm2 status
+
+# System load / memory
+htop
+```
 
 ---
 
-## 6. Known gotchas
+## 7. Known quirks
 
-1. **DATABASE_POOL_MAX** should be ~20 on the VPS (long-lived Node), NOT the
-   default `5` which is tuned for serverless.
-2. **PM2 and .env**: `ecosystem.config.cjs` loads `.env.production` at start
-   time. If you change env vars, `pm2 reload onpay` to pick them up.
-3. **Next.js standalone** copies only files referenced at build time. Any
-   runtime-read file (e.g. a logo we didn't import) needs to be explicitly
-   listed in `next.config.ts` `outputFileTracingIncludes`.
-4. **Certbot renewals**: run `sudo certbot renew --dry-run` monthly to
-   catch config drift before the 90-day cert expires.
-5. **Solana RPC rate limits**: the default public RPC will 429 under demo
-   load. Use Helius or Triton. Set `SOLANA_RPC_URL` to the paid endpoint,
-   keep the public one as `SOLANA_RPC_FALLBACK_URL`.
+1. **Port 3000 and 3001 are taken by other projects on this VPS.** OnPay runs on **3456**. Don't change it without updating the nginx vhost at the same time.
+2. **`DATABASE_POOL_MAX=20`** in `.env.production` (vs the repo default of 5 which is tuned for serverless). Don't lower it.
+3. **`NEXT_PUBLIC_SOLANA_CLUSTER=devnet`** currently. Switch to `mainnet-beta` + a paid Helius RPC URL for the mainnet smoke test (task #5 in the roadmap).
+4. **Cron for invoice expiration** is not yet configured. Add this to `deploy` user's crontab once we have the `CRON_SECRET` in production:
+   ```
+   * * * * * curl -s -X POST -H "x-cron-secret: $CRON_SECRET" https://onpay.id/api/cron/expire-invoices >> /home/deploy/onpay-cron.log 2>&1
+   ```
+   Replace `$CRON_SECRET` with the actual value from `.env.production`.
+5. **Certbot auto-renews** via the system systemd timer (`certbot.timer`). Test with `sudo certbot renew --dry-run` monthly.
+6. **WordOps admin panel** runs on port **22222** over HTTPS. Don't enable UFW without leaving that port open — you'll lock yourself out of WordOps management.
+7. **The `deploy` user has passwordless sudo.** Audit `sudoers.d/deploy` if you need to tighten this — the initial deploy needed it for WordOps operations.
+8. **Nginx vhost caveats**: the `ssl_session_cache` directive is declared globally by WordOps with a 50m shared zone. Do NOT redeclare it inside the onpay.id vhost — nginx will refuse to reload with a shared-memory-zone conflict.
+
+---
+
+## 8. Secrets locations
+
+- **Local operator backup**: `~/.ssh/onpay_vps_secrets.json` (on Wira's laptop only) — contains JWT_SECRET, CRON_SECRET, DB password, DATABASE_URL. Chmod 600.
+- **VPS env**: `/home/deploy/onpay_solana/.env.production` (chmod 600, owned by `deploy`)
+- **SSH private key**: `~/.ssh/onpay_vps_ed25519` (on Wira's laptop only)
+- **Initial root password**: in `VPS Hostinger Access.txt` in the parent project folder — **should be rotated now** since the initial bootstrap is complete. Key-based auth is in place for the `deploy` user, but root SSH with the original password is still enabled as a fallback. Change the root password via `passwd` over SSH when convenient.
+
+---
+
+## 9. Script reference
+
+| Script | Purpose |
+|---|---|
+| `deploy/deploy.sh` | Runs ON the VPS. Pulls + builds + reloads PM2. The "normal" deploy. |
+| `deploy/nginx.conf` | Reference nginx vhost (the one actually used lives in `/etc/nginx/sites-available/onpay.id` on the VPS). |
+| `deploy/_recover_and_deploy.py` | Full VPS bootstrap + first deploy. Idempotent, safe to rerun. |
+| `deploy/_certbot_webroot.py` | Issue / renew Let's Encrypt cert via webroot mode + write the HTTPS vhost. |
+| `deploy/_probe.py` | Read-only VPS state check — what's running, what's listening, user/repo/nginx state. |
+| `deploy/_diag.py` | Runtime diagnostic of the PM2 process + standalone bundle. |
+| `ecosystem.config.cjs` | PM2 app definition. `PORT=3456` is hard-coded. |
