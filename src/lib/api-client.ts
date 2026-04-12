@@ -134,6 +134,11 @@ export function upsertMerchantApi(body: UpsertMerchantBody = {}): Promise<Mercha
   return apiFetch<MerchantApi>("/api/merchants", { method: "POST", body });
 }
 
+export function getMerchantMeApi(signal?: AbortSignal): Promise<MerchantApi> {
+  const init = signal !== undefined ? { signal } : undefined;
+  return apiFetch<MerchantApi>("/api/merchants", init);
+}
+
 // ---------------------------------------------------------------------------
 // Stats
 // ---------------------------------------------------------------------------

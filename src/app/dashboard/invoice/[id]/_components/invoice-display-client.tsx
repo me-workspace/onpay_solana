@@ -15,8 +15,10 @@ import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useState } from "react";
 
 import { Logo } from "@/components/brand/logo";
+import { CopyButton } from "@/components/ui/copy-button";
 import { ConnectWalletButton } from "@/components/wallet/connect-button";
 import { ApiClientError, getInvoiceApi, type InvoiceApi } from "@/lib/api-client";
+import { useIsMobile } from "@/lib/use-is-mobile";
 
 const POLL_INTERVAL_MS = 2_000;
 
@@ -71,13 +73,13 @@ export function InvoiceDisplayClient({ invoiceId }: { invoiceId: string }): Reac
         </div>
       </header>
 
-      <section className="container-tight max-w-2xl py-12">
+      <section className="container-tight max-w-2xl py-8 sm:py-12">
         {state.kind === "loading" ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-slate-600">
+          <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-slate-600 sm:p-12">
             Loading invoice…
           </div>
         ) : state.kind === "error" ? (
-          <div className="rounded-2xl border border-red-200 bg-red-50 p-12 text-center">
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-8 text-center sm:p-12">
             <h2 className="text-xl font-semibold text-red-900">Could not load invoice</h2>
             <p className="mt-2 text-red-700">{state.message}</p>
             <Link
@@ -102,24 +104,60 @@ export function InvoiceDisplayClient({ invoiceId }: { invoiceId: string }): Reac
 }
 
 function PendingView({ invoice }: { invoice: InvoiceApi }): React.JSX.Element {
+  const isMobile = useIsMobile();
+
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-8">
+    <div className="rounded-2xl border border-slate-200 bg-white p-6 sm:p-8">
       <p className="text-sm font-medium uppercase tracking-wide text-brand-700">Awaiting payment</p>
-      <h1 className="mt-1 text-3xl font-bold text-slate-900">
+      <h1 className="mt-1 text-2xl font-bold text-slate-900 sm:text-3xl">
         {invoice.amount.formatted} {invoice.amount.currency}
       </h1>
       {invoice.label !== null ? <p className="mt-1 text-slate-600">{invoice.label}</p> : null}
 
       <div className="mt-8 flex justify-center">
-        <div className="rounded-2xl border border-slate-200 bg-white p-6">
-          <QRCodeSVG value={invoice.paymentUrl} size={280} level="M" />
+        <div className="w-full max-w-[320px] rounded-2xl border border-slate-200 bg-white p-4 sm:p-6">
+          <QRCodeSVG
+            value={invoice.paymentUrl}
+            size={280}
+            level="M"
+            className="mx-auto block h-auto w-full max-w-[280px]"
+          />
         </div>
       </div>
 
-      <p className="mt-6 text-center text-sm text-slate-600">
-        Scan with any Solana Pay-compatible wallet (Phantom, Backpack, Solflare).
-      </p>
-      <p className="mt-1 text-center font-mono text-xs text-slate-400">
+      {isMobile ? (
+        <>
+          {/* On mobile the user can't scan their own screen, so provide a
+              direct deep link that hands off to the wallet app. */}
+          <div className="mt-6 flex flex-col items-center gap-3">
+            <a
+              href={invoice.paymentUrl}
+              className="inline-flex w-full max-w-xs items-center justify-center rounded-lg bg-slate-900 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-800"
+            >
+              Open in wallet app
+            </a>
+            <p className="max-w-xs text-center text-xs text-slate-500">
+              Or share the QR with someone else to scan from their phone.
+            </p>
+          </div>
+        </>
+      ) : (
+        <p className="mt-6 text-center text-sm text-slate-600">
+          Scan with any Solana Pay-compatible wallet (Phantom, Backpack, Solflare).
+        </p>
+      )}
+
+      {/* Copy payment link — useful when sharing remotely. */}
+      <div className="mt-5 flex justify-center gap-3">
+        <CopyButton value={invoice.paymentUrl} label="Copy payment link" />
+      </div>
+
+      {/* Gas fee notice */}
+      <div className="mt-4 rounded-lg border border-slate-100 bg-slate-50 px-4 py-2.5 text-center text-xs text-slate-500">
+        Payer needs ~$0.01 in SOL for network fees. All SPL tokens accepted.
+      </div>
+
+      <p className="mt-4 text-center font-mono text-xs text-slate-400">
         ref: {invoice.reference.slice(0, 8)}…
       </p>
 
@@ -135,7 +173,7 @@ function PendingView({ invoice }: { invoice: InvoiceApi }): React.JSX.Element {
 
 function PaidView({ invoice }: { invoice: InvoiceApi }): React.JSX.Element {
   return (
-    <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-12 text-center">
+    <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-8 text-center sm:p-12">
       <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500 text-3xl text-white">
         ✓
       </div>
@@ -155,7 +193,7 @@ function PaidView({ invoice }: { invoice: InvoiceApi }): React.JSX.Element {
 
 function ExpiredView({ invoice }: { invoice: InvoiceApi }): React.JSX.Element {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center">
+    <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center sm:p-12">
       <h1 className="text-2xl font-bold text-slate-900">Invoice expired</h1>
       <p className="mt-2 text-slate-600">
         This invoice for {invoice.amount.formatted} {invoice.amount.currency} is no longer payable.
@@ -172,7 +210,7 @@ function ExpiredView({ invoice }: { invoice: InvoiceApi }): React.JSX.Element {
 
 function FailedView({ invoice }: { invoice: InvoiceApi }): React.JSX.Element {
   return (
-    <div className="rounded-2xl border border-red-200 bg-red-50 p-12 text-center">
+    <div className="rounded-2xl border border-red-200 bg-red-50 p-8 text-center sm:p-12">
       <h1 className="text-2xl font-bold text-red-900">Payment failed</h1>
       <p className="mt-2 text-red-700">
         Something went wrong with this payment ({invoice.amount.formatted} {invoice.amount.currency}

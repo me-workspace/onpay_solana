@@ -1,10 +1,11 @@
 /**
+ * GET  /api/merchants — return the authenticated merchant's profile.
  * POST /api/merchants — upsert the authenticated merchant's profile.
  *
- * The wallet address is taken from the session cookie, NOT the request
- * body. This prevents anyone from creating merchant rows for arbitrary
- * wallets they don't control. A client must have already completed the
- * /api/auth/nonce → /api/auth/verify flow to call this endpoint.
+ * Both endpoints identify the merchant via the session cookie, NOT the
+ * request body. This prevents anyone from reading/writing merchant rows
+ * for arbitrary wallets they don't control. A client must have already
+ * completed the /api/auth/nonce → /api/auth/verify flow to call them.
  */
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
@@ -58,6 +59,24 @@ function toResponse(merchant: Merchant): MerchantResponse {
     updatedAt: merchant.updatedAt.toISOString(),
   };
 }
+
+export const GET = withErrorHandler(async (req: NextRequest) => {
+  enforceRateLimit(mutationRateLimiter.check(clientKeyFromRequest(req)), "merchants");
+  const authenticatedWallet = await requireAuthenticatedWallet(req);
+
+  const merchantRepo = createMerchantRepository(getDb());
+  const result = await merchantRepo.findByWallet(authenticatedWallet);
+  if (!result.ok) {
+    throw apiError("INTERNAL_ERROR", "Failed to fetch merchant");
+  }
+  if (result.value === null) {
+    // Session is valid but no merchant row yet — treat as "not registered".
+    // Client should POST /api/merchants to create one.
+    throw apiError("NOT_FOUND", "Merchant profile not found. Sign in to register.");
+  }
+
+  return NextResponse.json(toResponse(result.value), { status: 200 });
+});
 
 export const POST = withErrorHandler(async (req: NextRequest) => {
   enforceRateLimit(mutationRateLimiter.check(clientKeyFromRequest(req)), "merchants");

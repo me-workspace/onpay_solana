@@ -50,17 +50,17 @@ export default function HomePage(): React.JSX.Element {
       </header>
 
       {/* Hero */}
-      <section className="container-tight py-20 sm:py-28">
+      <section className="container-tight py-16 sm:py-20 md:py-28">
         <div className="max-w-3xl">
           <p className="mb-4 inline-flex items-center rounded-full bg-brand-50 px-3 py-1 text-xs font-medium uppercase tracking-wider text-brand-700 ring-1 ring-brand-200">
             Solana Frontier Hackathon 2026
           </p>
-          <h1 className="text-5xl font-bold leading-[1.05] tracking-tight text-slate-900 sm:text-7xl">
+          <h1 className="text-4xl font-bold leading-[1.05] tracking-tight text-slate-900 sm:text-5xl md:text-7xl">
             Pay in any SPL token.
             <br />
             <span className="text-brand-600">Merchants receive USDC.</span>
           </h1>
-          <p className="mt-6 max-w-2xl text-lg text-slate-600 sm:text-xl">
+          <p className="mt-6 max-w-2xl text-base text-slate-600 sm:text-lg md:text-xl">
             OnPay is a non-custodial payment gateway on Solana. Buyers scan a QR, pick any token
             they already hold, and sign once — the merchant&apos;s wallet receives USDC in under two
             seconds. Atomically.
@@ -101,7 +101,7 @@ export default function HomePage(): React.JSX.Element {
           <p className="text-sm font-semibold uppercase tracking-widest text-brand-700">
             How it works
           </p>
-          <h2 className="mt-2 text-4xl font-bold tracking-tight text-slate-900">
+          <h2 className="mt-2 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
             One signature. Three programs. Done.
           </h2>
           <p className="mt-4 text-lg text-slate-600">
@@ -136,7 +136,7 @@ export default function HomePage(): React.JSX.Element {
             <p className="text-sm font-semibold uppercase tracking-widest text-brand-700">
               Built for real businesses
             </p>
-            <h2 className="mt-2 text-4xl font-bold tracking-tight text-slate-900">
+            <h2 className="mt-2 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
               Everything a merchant actually needs.
             </h2>
           </div>
@@ -176,7 +176,7 @@ export default function HomePage(): React.JSX.Element {
             <p className="text-sm font-semibold uppercase tracking-widest text-brand-700">
               Why Solana
             </p>
-            <h2 className="mt-2 text-4xl font-bold tracking-tight text-slate-900">
+            <h2 className="mt-2 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
               OnPay can only exist on Solana.
             </h2>
             <p className="mt-4 text-lg text-slate-600">
@@ -215,7 +215,7 @@ export default function HomePage(): React.JSX.Element {
       {/* CTA */}
       <section className="border-t border-slate-100 bg-brand-700 py-20 text-white">
         <div className="container-tight text-center">
-          <h2 className="text-4xl font-bold tracking-tight">
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
             Start accepting crypto in 60 seconds.
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-lg text-white">

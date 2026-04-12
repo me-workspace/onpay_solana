@@ -27,6 +27,8 @@
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useCallback, useEffect, useState } from "react";
 
+import { useIsMobile } from "@/lib/use-is-mobile";
+
 /**
  * How long we'll wait for a `connect()` call to resolve before showing the
  * user a "stuck — click to cancel" escape hatch. 10 seconds is long enough
@@ -51,12 +53,34 @@ function Placeholder(): React.JSX.Element {
   );
 }
 
+/**
+ * Build a Phantom universal link that opens the given URL inside Phantom's
+ * in-app browser — where `window.solana` IS injected, so the full wallet
+ * adapter flow works exactly as on desktop.
+ *
+ * Phantom's universal link spec:
+ *   https://phantom.app/ul/browse/<encoded-url>?ref=<encoded-url>
+ */
+function phantomBrowseUrl(targetUrl: string): string {
+  const encoded = encodeURIComponent(targetUrl);
+  return `https://phantom.app/ul/browse/${encoded}?ref=${encoded}`;
+}
+
+function backpackBrowseUrl(targetUrl: string): string {
+  return `https://backpack.app/ul/browse/${encodeURIComponent(targetUrl)}`;
+}
+
+function solflareBrowseUrl(targetUrl: string): string {
+  return `https://solflare.com/ul/v1/browse/${encodeURIComponent(targetUrl)}?ref=${encodeURIComponent(targetUrl)}`;
+}
+
 export function ConnectWalletButton(): React.JSX.Element {
   const walletCtx = useWallet();
   const { wallets, publicKey, connecting, connected } = walletCtx;
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [stuck, setStuck] = useState(false);
+  const isMobile = useIsMobile();
 
   // Flip after the first client-side render so we can safely diverge from
   // the server HTML without tripping React hydration.
@@ -110,14 +134,14 @@ export function ConnectWalletButton(): React.JSX.Element {
 
   if (connected && publicKey !== null) {
     return (
-      <div className="flex items-center gap-3">
-        <span className="rounded-full bg-brand-50 px-3 py-1.5 font-mono text-xs text-brand-700">
+      <div className="flex items-center gap-2 sm:gap-3">
+        <span className="hidden rounded-full bg-brand-50 px-3 py-1.5 font-mono text-xs text-brand-700 sm:inline">
           {truncate(publicKey.toBase58())}
         </span>
         <button
           type="button"
           onClick={handleDisconnect}
-          className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 sm:px-4"
         >
           Disconnect
         </button>
@@ -126,6 +150,36 @@ export function ConnectWalletButton(): React.JSX.Element {
   }
 
   if (wallets.length === 0) {
+    // On mobile, browser extensions don't exist — redirect to the wallet's
+    // in-app browser instead of asking the user to install an extension.
+    if (isMobile) {
+      const currentUrl = typeof window !== "undefined" ? window.location.href : "";
+      return (
+        <div className="flex flex-col gap-2">
+          <a
+            href={phantomBrowseUrl(currentUrl)}
+            className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800"
+          >
+            Open in Phantom
+          </a>
+          <div className="flex gap-2">
+            <a
+              href={backpackBrowseUrl(currentUrl)}
+              className="inline-flex flex-1 items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+            >
+              Backpack
+            </a>
+            <a
+              href={solflareBrowseUrl(currentUrl)}
+              className="inline-flex flex-1 items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+            >
+              Solflare
+            </a>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900">
         No Solana wallet detected. Install{" "}
@@ -183,7 +237,7 @@ export function ConnectWalletButton(): React.JSX.Element {
         {connecting ? "Connecting…" : "Connect wallet"}
       </button>
       {open ? (
-        <div className="absolute right-0 z-10 mt-2 w-56 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
+        <div className="absolute right-0 z-10 mt-2 w-[min(14rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
           <ul className="divide-y divide-slate-100">
             {wallets.map((entry) => (
               <li key={entry.adapter.name}>

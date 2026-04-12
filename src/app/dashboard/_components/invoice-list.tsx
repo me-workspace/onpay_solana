@@ -68,39 +68,67 @@ export function InvoiceList({ refreshKey = 0 }: { refreshKey?: number }): React.
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="border-b border-slate-100 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="pb-3 pr-4">Amount</th>
-                <th className="pb-3 pr-4">Status</th>
-                <th className="pb-3 pr-4">Label</th>
-                <th className="pb-3 text-right">Created</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {state.invoices.map((invoice) => (
-                <tr key={invoice.id} className="text-slate-700">
-                  <td className="py-3 pr-4">
-                    <Link
-                      href={`/dashboard/invoice/${invoice.id}`}
-                      className="font-medium text-slate-900 hover:text-brand-700"
-                    >
-                      {invoice.amount.formatted} {invoice.amount.currency}
-                    </Link>
-                  </td>
-                  <td className="py-3 pr-4">
-                    <StatusBadge status={invoice.status} />
-                  </td>
-                  <td className="py-3 pr-4 text-slate-600">{invoice.label ?? "—"}</td>
-                  <td className="py-3 text-right text-xs text-slate-500">
-                    {formatRelativeTime(invoice.createdAt)}
-                  </td>
+        <>
+          {/* Desktop: table layout — hidden on narrow viewports */}
+          <div className="hidden overflow-x-auto md:block">
+            <table className="w-full text-sm">
+              <thead className="border-b border-slate-100 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="pb-3 pr-4">Amount</th>
+                  <th className="pb-3 pr-4">Status</th>
+                  <th className="pb-3 pr-4">Label</th>
+                  <th className="pb-3 text-right">Created</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {state.invoices.map((invoice) => (
+                  <tr key={invoice.id} className="text-slate-700">
+                    <td className="py-3 pr-4">
+                      <Link
+                        href={`/dashboard/invoice/${invoice.id}`}
+                        className="font-medium text-slate-900 hover:text-brand-700"
+                      >
+                        {invoice.amount.formatted} {invoice.amount.currency}
+                      </Link>
+                    </td>
+                    <td className="py-3 pr-4">
+                      <StatusBadge status={invoice.status} />
+                    </td>
+                    <td className="py-3 pr-4 text-slate-600">{invoice.label ?? "—"}</td>
+                    <td className="py-3 text-right text-xs text-slate-500">
+                      {formatRelativeTime(invoice.createdAt)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile: stacked cards — each row is a tappable link */}
+          <ul className="divide-y divide-slate-100 md:hidden" aria-label="Recent payments">
+            {state.invoices.map((invoice) => (
+              <li key={invoice.id}>
+                <Link
+                  href={`/dashboard/invoice/${invoice.id}`}
+                  className="-mx-2 flex items-start justify-between gap-3 rounded-lg px-2 py-4 transition hover:bg-slate-50"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-slate-900">
+                      {invoice.amount.formatted} {invoice.amount.currency}
+                    </p>
+                    <p className="mt-1 truncate text-sm text-slate-600">
+                      {invoice.label ?? "No label"}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-400">
+                      {formatRelativeTime(invoice.createdAt)}
+                    </p>
+                  </div>
+                  <StatusBadge status={invoice.status} />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </div>
   );

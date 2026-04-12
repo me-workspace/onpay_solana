@@ -72,11 +72,11 @@ export function NewInvoiceClient(): React.JSX.Element {
         </div>
       </header>
 
-      <section className="container-tight max-w-xl py-12">
+      <section className="container-tight max-w-xl py-8 sm:py-12">
         <Link href="/dashboard" className="text-sm text-slate-500 hover:text-slate-900">
           ← Back to dashboard
         </Link>
-        <h1 className="mt-2 text-3xl font-bold text-slate-900">New payment</h1>
+        <h1 className="mt-2 text-2xl font-bold text-slate-900 sm:text-3xl">New payment</h1>
         <p className="mt-2 text-slate-600">
           Generate a Solana Pay QR. Buyers can pay with any SPL token; you receive USDC.
         </p>
@@ -93,7 +93,7 @@ export function NewInvoiceClient(): React.JSX.Element {
             onSubmit={(event) => {
               void handleSubmit(event);
             }}
-            className="mt-8 space-y-6 rounded-2xl border border-slate-200 bg-white p-8"
+            className="mt-8 space-y-6 rounded-2xl border border-slate-200 bg-white p-6 sm:p-8"
           >
             <div>
               <label htmlFor="amount" className="block text-sm font-medium text-slate-700">
