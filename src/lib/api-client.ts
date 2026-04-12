@@ -162,6 +162,55 @@ export function getMerchantStatsApi(signal?: AbortSignal): Promise<StatsResponse
 }
 
 // ---------------------------------------------------------------------------
+// API Keys
+// ---------------------------------------------------------------------------
+
+export type ApiKeyApi = {
+  readonly id: string;
+  readonly name: string;
+  readonly keyType: "publishable" | "secret";
+  readonly keyPrefix: string;
+  readonly keyHint: string;
+  readonly mode: "live" | "test";
+  readonly scopes: readonly string[];
+  readonly lastUsedAt: string | null;
+  readonly expiresAt: string | null;
+  readonly createdAt: string;
+  readonly revokedAt: string | null;
+};
+
+export type ListApiKeysResponse = {
+  readonly keys: readonly ApiKeyApi[];
+};
+
+export type CreateApiKeyBody = {
+  readonly name: string;
+  readonly keyType: "publishable" | "secret";
+  readonly mode: "live" | "test";
+  readonly scopes?: readonly string[];
+};
+
+export type CreateApiKeyResponse = ApiKeyApi & {
+  /** The full raw key — shown once, never again. Store it securely. */
+  readonly rawKey: string;
+};
+
+export function listApiKeysApi(signal?: AbortSignal): Promise<ListApiKeysResponse> {
+  const init = signal !== undefined ? { signal } : undefined;
+  return apiFetch<ListApiKeysResponse>("/api/keys", init);
+}
+
+export function createApiKeyApi(body: CreateApiKeyBody): Promise<CreateApiKeyResponse> {
+  return apiFetch<CreateApiKeyResponse>("/api/keys", { method: "POST", body });
+}
+
+export function revokeApiKeyApi(id: string): Promise<{ ok: true; id: string }> {
+  return apiFetch<{ ok: true; id: string }>(`/api/keys/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Invoices
 // ---------------------------------------------------------------------------
 export type CreateInvoiceBody = {

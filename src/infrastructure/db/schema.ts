@@ -26,6 +26,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   unique,
   uuid,
 } from "drizzle-orm/pg-core";
@@ -36,6 +37,10 @@ import {
 export const invoiceStatusEnum = pgEnum("invoice_status", ["pending", "paid", "expired", "failed"]);
 
 export const preferredLanguageEnum = pgEnum("preferred_language", ["en", "id"]);
+
+export const apiKeyTypeEnum = pgEnum("api_key_type", ["publishable", "secret"]);
+
+export const apiKeyModeEnum = pgEnum("api_key_mode", ["live", "test"]);
 
 // ---------------------------------------------------------------------------
 // Merchants
@@ -110,10 +115,45 @@ export const payments = pgTable(
 );
 
 // ---------------------------------------------------------------------------
+// API Keys
+// ---------------------------------------------------------------------------
+export const apiKeys = pgTable(
+  "api_keys",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    merchantId: uuid("merchant_id")
+      .notNull()
+      .references(() => merchants.id, { onDelete: "cascade" }),
+    /** Human-readable label, e.g. "Production key". */
+    name: text("name").notNull(),
+    keyType: apiKeyTypeEnum("key_type").notNull(),
+    /** Visible prefix: pk_live_, sk_live_, pk_test_, sk_test_. */
+    keyPrefix: text("key_prefix").notNull(),
+    /** SHA-256 hash of the full key — we never store the raw key. */
+    keyHash: text("key_hash").notNull(),
+    /** Last 4 chars of the raw key for display (e.g. "...abc1"). */
+    keyHint: text("key_hint").notNull(),
+    mode: apiKeyModeEnum("mode").notNull(),
+    /** Array of scope strings, e.g. ["invoices:create", "invoices:read"]. */
+    scopes: text("scopes").array().notNull(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true, mode: "date" }),
+    expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+    /** Non-null means the key has been revoked (soft-delete). */
+    revokedAt: timestamp("revoked_at", { withTimezone: true, mode: "date" }),
+  },
+  (table) => [
+    uniqueIndex("api_keys_key_hash_idx").on(table.keyHash),
+    index("api_keys_merchant_idx").on(table.merchantId),
+  ],
+);
+
+// ---------------------------------------------------------------------------
 // Relations (for Drizzle's relational query API)
 // ---------------------------------------------------------------------------
 export const merchantsRelations = relations(merchants, ({ many }) => ({
   invoices: many(invoices),
+  apiKeys: many(apiKeys),
 }));
 
 export const invoicesRelations = relations(invoices, ({ one, many }) => ({
@@ -128,6 +168,13 @@ export const paymentsRelations = relations(payments, ({ one }) => ({
   invoice: one(invoices, {
     fields: [payments.invoiceId],
     references: [invoices.id],
+  }),
+}));
+
+export const apiKeysRelations = relations(apiKeys, ({ one }) => ({
+  merchant: one(merchants, {
+    fields: [apiKeys.merchantId],
+    references: [merchants.id],
   }),
 }));
 
@@ -174,3 +221,5 @@ export type PaymentRow = typeof payments.$inferSelect;
 export type NewPaymentRow = typeof payments.$inferInsert;
 export type IdempotencyKeyRow = typeof idempotencyKeys.$inferSelect;
 export type NewIdempotencyKeyRow = typeof idempotencyKeys.$inferInsert;
+export type ApiKeyRow = typeof apiKeys.$inferSelect;
+export type NewApiKeyRow = typeof apiKeys.$inferInsert;

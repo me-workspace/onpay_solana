@@ -16,6 +16,7 @@ import type { z } from "zod";
 import { logger } from "@/lib/logger";
 
 import { ApiError, apiError } from "./api-error";
+import { parseApiVersion, VERSION_HEADER } from "./api-version";
 import type { RateLimitResult } from "./rate-limit";
 
 /**
@@ -142,25 +143,42 @@ export function withErrorHandler<Args extends unknown[]>(
     const method = req.method;
     const log = logger.child({ route, method });
 
+    // Parse the requested API version early so even error responses carry it.
+    let version: string;
     try {
-      return await handler(req, ...args);
+      version = parseApiVersion(req);
+    } catch (thrown: unknown) {
+      if (thrown instanceof ApiError) {
+        return thrown.toJsonResponse();
+      }
+      throw thrown;
+    }
+
+    try {
+      const response = await handler(req, ...args);
+      response.headers.set(VERSION_HEADER, version);
+      return response;
     } catch (thrown: unknown) {
       if (thrown instanceof ApiError) {
         log.warn(
           { code: thrown.code, status: thrown.status, message: thrown.message },
           "api error",
         );
-        return thrown.toJsonResponse();
+        const response = thrown.toJsonResponse();
+        response.headers.set(VERSION_HEADER, version);
+        return response;
       }
 
       log.error({ err: thrown }, "unhandled exception in api route");
-      return NextResponse.json(
+      const response = NextResponse.json(
         {
           code: "INTERNAL_ERROR",
           message: "An unexpected error occurred. Please try again.",
         },
         { status: 500 },
       );
+      response.headers.set(VERSION_HEADER, version);
+      return response;
     }
   };
 }
