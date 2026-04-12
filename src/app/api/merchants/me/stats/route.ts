@@ -24,6 +24,15 @@ export const dynamic = "force-dynamic";
 const CURRENCY = "USD";
 const DECIMALS = 2;
 
+/**
+ * Simple in-memory cache for stats responses. Keyed by merchant ID, expires
+ * after CACHE_TTL_MS. Eliminates redundant DB aggregations when a merchant
+ * refreshes the dashboard within a short window.
+ */
+const CACHE_TTL_MS = 30_000;
+type CacheEntry = { expiresAt: number; body: StatsResponse };
+const statsCache = new Map<string, CacheEntry>();
+
 type StatCard = {
   readonly label: string;
   readonly totalFormatted: string;
@@ -82,6 +91,16 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   }
 
   const merchantId = merchantResult.value.id;
+
+  // Serve from cache if available and fresh.
+  const cached = statsCache.get(merchantId);
+  if (cached !== undefined && cached.expiresAt > Date.now()) {
+    const res = NextResponse.json(cached.body, { status: 200 });
+    res.headers.set("Cache-Control", "private, max-age=30, stale-while-revalidate=60");
+    res.headers.set("X-Cache", "HIT");
+    return res;
+  }
+
   const invoiceRepo = createInvoiceRepository(db);
   const now = new Date();
 
@@ -101,5 +120,12 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     week: toCard("Last 7 days", weekResult.value),
     month: toCard("Last 30 days", monthResult.value),
   };
-  return NextResponse.json(response, { status: 200 });
+
+  // Populate cache.
+  statsCache.set(merchantId, { expiresAt: Date.now() + CACHE_TTL_MS, body: response });
+
+  const res = NextResponse.json(response, { status: 200 });
+  res.headers.set("Cache-Control", "private, max-age=30, stale-while-revalidate=60");
+  res.headers.set("X-Cache", "MISS");
+  return res;
 });

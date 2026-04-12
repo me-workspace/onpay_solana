@@ -19,6 +19,13 @@ import { ApiError, apiError } from "./api-error";
 import type { RateLimitResult } from "./rate-limit";
 
 /**
+ * Maximum request body size we accept (16 KB). OnPay only processes
+ * small JSON payloads (amounts, labels, settings). Anything larger is
+ * either a mistake or an attempt to exhaust memory.
+ */
+const MAX_BODY_BYTES = 16 * 1024;
+
+/**
  * Parse a JSON request body and validate it against a Zod schema.
  * Returns the parsed value on success, or an `ApiError` on failure.
  *
@@ -29,6 +36,15 @@ export async function parseJsonBody<Schema extends z.ZodType<unknown>>(
   req: NextRequest,
   schema: Schema,
 ): Promise<z.output<Schema>> {
+  // Reject obviously oversized payloads before attempting to parse.
+  const contentLength = req.headers.get("content-length");
+  if (contentLength !== null) {
+    const size = parseInt(contentLength, 10);
+    if (!Number.isNaN(size) && size > MAX_BODY_BYTES) {
+      throw apiError("PAYLOAD_TOO_LARGE", "Request body exceeds the 16 KB limit");
+    }
+  }
+
   let raw: unknown;
   try {
     raw = (await req.json()) as unknown;
@@ -96,7 +112,10 @@ export function enforceRateLimit(result: RateLimitResult, label: string): void {
   throw apiError(
     "RATE_LIMITED",
     `Too many requests to ${label}. Try again in ${String(retryAfterSeconds)}s.`,
-    { details: { retryAfterSeconds } },
+    {
+      details: { retryAfterSeconds },
+      headers: { "Retry-After": String(retryAfterSeconds) },
+    },
   );
 }
 

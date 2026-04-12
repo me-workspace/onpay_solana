@@ -19,7 +19,16 @@
  * 6. Indexes cover the exact access patterns used by InvoiceRepository.
  */
 import { relations } from "drizzle-orm";
-import { index, integer, pgEnum, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  index,
+  integer,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+  unique,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 // ---------------------------------------------------------------------------
 // Enums
@@ -123,6 +132,26 @@ export const paymentsRelations = relations(payments, ({ one }) => ({
 }));
 
 // ---------------------------------------------------------------------------
+// Idempotency Keys
+// ---------------------------------------------------------------------------
+export const idempotencyKeys = pgTable(
+  "idempotency_keys",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    merchantId: uuid("merchant_id")
+      .notNull()
+      .references(() => merchants.id, { onDelete: "cascade" }),
+    key: text("key").notNull(),
+    /** HTTP status code of the original response. */
+    responseStatus: integer("response_status").notNull(),
+    /** Full JSON response body, stored as text (not jsonb) to preserve exact serialization. */
+    responseBody: text("response_body").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [unique("idempotency_keys_merchant_key").on(table.merchantId, table.key)],
+);
+
+// ---------------------------------------------------------------------------
 // Inferred row types — consumed by the invoice-repo adapter for row→domain mapping.
 // ---------------------------------------------------------------------------
 export type MerchantRow = typeof merchants.$inferSelect;
@@ -131,3 +160,5 @@ export type InvoiceRow = typeof invoices.$inferSelect;
 export type NewInvoiceRow = typeof invoices.$inferInsert;
 export type PaymentRow = typeof payments.$inferSelect;
 export type NewPaymentRow = typeof payments.$inferInsert;
+export type IdempotencyKeyRow = typeof idempotencyKeys.$inferSelect;
+export type NewIdempotencyKeyRow = typeof idempotencyKeys.$inferInsert;

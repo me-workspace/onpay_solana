@@ -20,6 +20,7 @@ import { getDb } from "@/infrastructure/db/client";
 import { createInvoiceRepository } from "@/infrastructure/db/invoice-repo";
 import { apiError } from "@/lib/api-error";
 import { withErrorHandler } from "@/lib/http";
+import { cleanupExpiredIdempotencyKeys } from "@/lib/idempotency";
 import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
@@ -27,6 +28,7 @@ export const dynamic = "force-dynamic";
 
 type Response = {
   readonly expired: number;
+  readonly idempotencyKeysCleanedUp: number;
   readonly at: string;
 };
 
@@ -43,7 +45,8 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   }
 
   const log = logger.child({ route: "POST /api/cron/expire-invoices" });
-  const invoiceRepo = createInvoiceRepository(getDb());
+  const db = getDb();
+  const invoiceRepo = createInvoiceRepository(db);
   const now = new Date();
 
   const result = await invoiceRepo.expirePendingBefore(now);
@@ -52,10 +55,19 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     throw apiError("INTERNAL_ERROR", "Failed to expire invoices");
   }
 
-  log.info({ expired: result.value }, "expiration sweep complete");
+  // Also clean up expired idempotency keys (24h TTL).
+  let idempotencyKeysCleanedUp = 0;
+  try {
+    idempotencyKeysCleanedUp = await cleanupExpiredIdempotencyKeys(db);
+  } catch (cause: unknown) {
+    log.warn({ err: cause }, "failed to clean up idempotency keys (non-fatal)");
+  }
+
+  log.info({ expired: result.value, idempotencyKeysCleanedUp }, "expiration sweep complete");
 
   const body: Response = {
     expired: result.value,
+    idempotencyKeysCleanedUp,
     at: now.toISOString(),
   };
   return NextResponse.json(body, { status: 200 });

@@ -31,6 +31,7 @@ import {
   parseJsonBody,
   withErrorHandler,
 } from "@/lib/http";
+import { withIdempotency } from "@/lib/idempotency";
 import { mutationRateLimiter } from "@/lib/rate-limit";
 import { buildPaymentUrl } from "@/lib/solana-pay-url";
 import { generateInvoiceReference } from "@/lib/solana-pubkey";
@@ -187,29 +188,33 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     throw apiError("NOT_FOUND", "Merchant not registered. Call POST /api/merchants first.");
   }
 
-  // 3. Create the invoice via the use case.
-  const invoiceRepo = createInvoiceRepository(db);
-  const invoiceResult = await createInvoice(
-    {
-      merchant: merchantResult.value,
-      amountDecimal: body.amountDecimal,
-      currency: currencyKey,
-      decimals: currencyConfig.decimals,
-      label: body.label ?? null,
-      memo: body.memo ?? null,
-      ttlSeconds: serverEnv.INVOICE_TTL_SECONDS,
-    },
-    { invoices: invoiceRepo, clock: systemClock, generateReference: generateInvoiceReference },
-  );
+  const merchant = merchantResult.value;
 
-  if (!invoiceResult.ok) {
-    if (invoiceResult.error.kind === "VALIDATION_FAILED") {
-      throw apiError("INVALID_REQUEST", invoiceResult.error.message);
+  // 3. Create the invoice via the use case, wrapped in idempotency.
+  return withIdempotency(req, merchant.id, db, async () => {
+    const invoiceRepo = createInvoiceRepository(db);
+    const invoiceResult = await createInvoice(
+      {
+        merchant,
+        amountDecimal: body.amountDecimal,
+        currency: currencyKey,
+        decimals: currencyConfig.decimals,
+        label: body.label ?? null,
+        memo: body.memo ?? null,
+        ttlSeconds: serverEnv.INVOICE_TTL_SECONDS,
+      },
+      { invoices: invoiceRepo, clock: systemClock, generateReference: generateInvoiceReference },
+    );
+
+    if (!invoiceResult.ok) {
+      if (invoiceResult.error.kind === "VALIDATION_FAILED") {
+        throw apiError("INVALID_REQUEST", invoiceResult.error.message);
+      }
+      throw apiError("INTERNAL_ERROR", "Failed to create invoice", {
+        cause: invoiceResult.error,
+      });
     }
-    throw apiError("INTERNAL_ERROR", "Failed to create invoice", {
-      cause: invoiceResult.error,
-    });
-  }
 
-  return NextResponse.json(toResponse(invoiceResult.value), { status: 201 });
+    return NextResponse.json(toResponse(invoiceResult.value), { status: 201 });
+  });
 });

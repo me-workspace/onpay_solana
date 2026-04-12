@@ -34,6 +34,7 @@ export type ApiErrorCode =
   | "NOT_FOUND"
   | "CONFLICT"
   | "GONE"
+  | "PAYLOAD_TOO_LARGE"
   | "RATE_LIMITED"
   | "UPSTREAM_FAILURE"
   | "INTERNAL_ERROR";
@@ -46,6 +47,7 @@ const STATUS_MAP: Record<ApiErrorCode, number> = {
   NOT_FOUND: 404,
   CONFLICT: 409,
   GONE: 410,
+  PAYLOAD_TOO_LARGE: 413,
   RATE_LIMITED: 429,
   UPSTREAM_FAILURE: 502,
   INTERNAL_ERROR: 500,
@@ -62,17 +64,27 @@ export class ApiError extends Error {
   public readonly code: ApiErrorCode;
   public readonly status: number;
   public readonly details?: unknown;
+  /** Extra HTTP headers to include on the error response (e.g. Retry-After). */
+  public readonly responseHeaders?: Record<string, string>;
 
   constructor(
     code: ApiErrorCode,
     message: string,
-    options?: { status?: number; details?: unknown; cause?: unknown },
+    options?: {
+      status?: number;
+      details?: unknown;
+      cause?: unknown;
+      headers?: Record<string, string>;
+    },
   ) {
     super(message, options?.cause !== undefined ? { cause: options.cause } : undefined);
     this.code = code;
     this.status = options?.status ?? STATUS_MAP[code];
     if (options?.details !== undefined) {
       this.details = options.details;
+    }
+    if (options?.headers !== undefined) {
+      this.responseHeaders = options.headers;
     }
   }
 
@@ -90,7 +102,13 @@ export class ApiError extends Error {
 
   /** Convert to a NextResponse with the correct status and body. */
   toJsonResponse(): NextResponse<ApiErrorBody> {
-    return NextResponse.json(this.toBody(), { status: this.status });
+    const response = NextResponse.json(this.toBody(), { status: this.status });
+    if (this.responseHeaders !== undefined) {
+      for (const [key, value] of Object.entries(this.responseHeaders)) {
+        response.headers.set(key, value);
+      }
+    }
+    return response;
   }
 }
 
@@ -98,7 +116,12 @@ export class ApiError extends Error {
 export function apiError(
   code: ApiErrorCode,
   message: string,
-  options?: { status?: number; details?: unknown; cause?: unknown },
+  options?: {
+    status?: number;
+    details?: unknown;
+    cause?: unknown;
+    headers?: Record<string, string>;
+  },
 ): ApiError {
   return new ApiError(code, message, options);
 }

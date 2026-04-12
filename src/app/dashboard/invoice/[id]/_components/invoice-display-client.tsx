@@ -10,8 +10,8 @@
  * Polling stops as soon as the invoice transitions to a terminal state
  * (paid / expired / failed) so we don't burn requests forever.
  */
+import dynamic from "next/dynamic";
 import Link from "next/link";
-import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useState } from "react";
 
 import { Logo } from "@/components/brand/logo";
@@ -19,6 +19,13 @@ import { CopyButton } from "@/components/ui/copy-button";
 import { ConnectWalletButton } from "@/components/wallet/connect-button";
 import { ApiClientError, getInvoiceApi, type InvoiceApi } from "@/lib/api-client";
 import { useIsMobile } from "@/lib/use-is-mobile";
+
+const QRCodeSVG = dynamic(() => import("qrcode.react").then((m) => m.QRCodeSVG), {
+  ssr: false,
+  loading: () => (
+    <div className="mx-auto h-[280px] w-[280px] animate-pulse rounded-lg bg-slate-100" />
+  ),
+});
 
 const POLL_INTERVAL_MS = 2_000;
 
