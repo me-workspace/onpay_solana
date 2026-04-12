@@ -92,6 +92,7 @@ function makeFakeSolanaClient(): SolanaClient {
     },
     findSignaturesForReference: () => Promise.resolve(ok([])),
     checkHealth: () => Promise.resolve(ok(true as const)),
+    getFeePagerBalance: () => Promise.resolve(ok(500_000_000)),
   };
 }
 

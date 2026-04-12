@@ -33,11 +33,13 @@ import {
 import {
   AddressLookupTableAccount,
   ComputeBudgetProgram,
+  Keypair,
   PublicKey,
   TransactionInstruction,
   TransactionMessage,
   VersionedTransaction,
 } from "@solana/web3.js";
+import bs58 from "bs58";
 
 import type { SolanaClient } from "@/application/ports/solana-client";
 import type { SerializedInstruction, SwapQuoter } from "@/application/ports/swap-quoter";
@@ -70,6 +72,13 @@ export type BuildPaymentTransactionInput = {
   readonly inputMint: string;
   /** Slippage cap, in basis points (100 = 1%). Defaults to JUPITER_MAX_SLIPPAGE_BPS. */
   readonly slippageBps: number;
+  /**
+   * Optional: base58-encoded private key of the fee-payer hot wallet.
+   * When provided, OnPay pays the Solana transaction fee and partially
+   * signs the tx before returning it to the buyer's wallet. The buyer
+   * only signs for token authority — no SOL needed in their wallet.
+   */
+  readonly feePayerPrivateKey?: string;
 };
 
 export type BuildPaymentTransactionDeps = {
@@ -214,16 +223,31 @@ export async function buildPaymentTransaction(
   );
   if (!altAccountsResult.ok) return altAccountsResult;
 
-  // 9. Compose the instruction list. Order matters: compute budget → ATA
-  //    create → Jupiter setup → swap → Jupiter cleanup → memo.
+  // 9. Parse the optional fee-payer keypair.
+  let feePayerKeypair: Keypair | null = null;
+  if (input.feePayerPrivateKey !== undefined) {
+    const pkBase58 = input.feePayerPrivateKey;
+    const parseKeypairResult = trySync(
+      () => Keypair.fromSecretKey(bs58.decode(pkBase58)),
+      (cause) => domainError("INTERNAL_ERROR", "Invalid fee payer private key", { cause }),
+    );
+    if (!parseKeypairResult.ok) return parseKeypairResult;
+    feePayerKeypair = parseKeypairResult.value;
+  }
+
+  // The account that pays the transaction fee + ATA rent.
+  const feePayerPubkey = feePayerKeypair !== null ? feePayerKeypair.publicKey : buyer;
+
+  // 10. Compose the instruction list. Order matters: compute budget → ATA
+  //     create → Jupiter setup → swap → Jupiter cleanup → memo.
   const instructions: TransactionInstruction[] = [
     ComputeBudgetProgram.setComputeUnitLimit({ units: COMPUTE_UNIT_LIMIT }),
     ComputeBudgetProgram.setComputeUnitPrice({
       microLamports: COMPUTE_UNIT_PRICE_MICROLAMPORTS,
     }),
-    // Idempotent ATA create — no-op if it already exists. Buyer pays rent.
+    // Idempotent ATA create — no-op if it already exists. Fee payer pays rent.
     createAssociatedTokenAccountIdempotentInstruction(
-      buyer,
+      feePayerPubkey,
       merchantUsdcAta,
       merchantWallet,
       outputMint,
@@ -236,16 +260,24 @@ export async function buildPaymentTransaction(
     buildMemoInstruction(reference),
   ];
 
-  // 10. Compile to a v0 message and serialize.
+  // 11. Compile to a v0 message and serialize. If a fee payer is configured,
+  //     partially sign with the fee payer's key before returning the tx.
   const buildResult = trySync(
     () => {
       const message = new TransactionMessage({
-        payerKey: buyer,
+        payerKey: feePayerPubkey,
         recentBlockhash: blockhashResult.value.blockhash,
         instructions,
       }).compileToV0Message(altAccountsResult.value);
 
       const tx = new VersionedTransaction(message);
+
+      // If we have a fee payer, partially sign now. The buyer's wallet will
+      // add the second signature when the user confirms.
+      if (feePayerKeypair !== null) {
+        tx.sign([feePayerKeypair]);
+      }
+
       const serialized = tx.serialize();
       // Sanity check: the on-the-wire transaction must fit in the runtime
       // limit. Jupiter + ATA create + memo should comfortably fit with ALTs;

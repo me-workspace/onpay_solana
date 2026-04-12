@@ -102,6 +102,7 @@ function makeSolanaClient(signatures: ReferenceSignature[] = []): SolanaClient {
     getAddressLookupTables: () => Promise.resolve(ok([])),
     findSignaturesForReference: () => Promise.resolve(ok(signatures)),
     checkHealth: () => Promise.resolve(ok(true as const)),
+    getFeePagerBalance: () => Promise.resolve(ok(500_000_000)),
   };
 }
 
@@ -112,6 +113,7 @@ function makeFailingSolanaClient(): SolanaClient {
     findSignaturesForReference: () =>
       Promise.resolve(err(domainError("UPSTREAM_FAILURE", "rpc down"))),
     checkHealth: () => Promise.resolve(ok(true as const)),
+    getFeePagerBalance: () => Promise.resolve(ok(500_000_000)),
   };
 }
 

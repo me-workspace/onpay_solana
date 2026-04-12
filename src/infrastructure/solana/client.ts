@@ -7,7 +7,8 @@
  * - optional fallback URL (primary→fallback retry on transport failure)
  * - health check for the `/api/health` endpoint
  */
-import { Connection, PublicKey } from "@solana/web3.js";
+import { Connection, Keypair, PublicKey } from "@solana/web3.js";
+import bs58 from "bs58";
 
 import type {
   AddressLookupTable,
@@ -136,6 +137,27 @@ export function createSolanaClient(): SolanaClient {
     async checkHealth() {
       const result = await runWithFallback("getVersion", (conn) => conn.getVersion());
       return result.ok ? ok(true as const) : err(result.error);
+    },
+
+    async getFeePagerBalance(privateKeyBase58) {
+      const result = await tryAsync(
+        (async () => {
+          const keypair = Keypair.fromSecretKey(bs58.decode(privateKeyBase58));
+          const balance = await withTimeout(
+            primary.getBalance(keypair.publicKey, "confirmed"),
+            RPC_TIMEOUT_MS,
+            "getBalance(feePayer)",
+          );
+          return balance;
+        })(),
+        (cause) => ({ cause }),
+      );
+      if (result.ok) return ok(result.value);
+      return err(
+        domainError("UPSTREAM_FAILURE", "Failed to check fee payer balance", {
+          cause: result.error.cause,
+        }),
+      );
     },
   };
 }

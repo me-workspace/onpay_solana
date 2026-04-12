@@ -161,7 +161,7 @@ function PendingView({ invoice }: { invoice: InvoiceApi }): React.JSX.Element {
 
       {/* Gas fee notice */}
       <div className="mt-4 rounded-lg border border-slate-100 bg-slate-50 px-4 py-2.5 text-center text-xs text-slate-500">
-        Payer needs ~$0.01 in SOL for network fees. All SPL tokens accepted.
+        Any SPL token accepted. Network fee covered by OnPay.
       </div>
 
       <p className="mt-4 text-center font-mono text-xs text-slate-400">

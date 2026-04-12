@@ -66,6 +66,23 @@ const serverEnvSchema = z.object({
   // ---- Business config ---------------------------------------------------
   DEFAULT_SETTLEMENT_MINT: z.string().min(32).max(44),
 
+  // ---- Fee payer ----------------------------------------------------------
+  /**
+   * Base58-encoded private key for the fee-payer hot wallet. When set,
+   * OnPay pays the Solana transaction fee on behalf of the buyer and the
+   * buyer only signs for token authority. This eliminates the "buyer needs
+   * SOL" UX problem.
+   *
+   * Optional — if not set, the buyer pays gas as before.
+   *
+   * Generate a new keypair:
+   *   solana-keygen new --no-bip39-passphrase --outfile fee-payer.json
+   *   cat fee-payer.json  # copy the base58 private key
+   *
+   * Fund it with a small amount of SOL (0.5 SOL ≈ 100k transactions).
+   */
+  FEE_PAYER_PRIVATE_KEY: emptyAsUndefined.pipe(z.string().min(32).optional()),
+
   // ---- Observability -----------------------------------------------------
   LOG_LEVEL: logLevelSchema.default("info"),
 

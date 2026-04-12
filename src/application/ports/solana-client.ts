@@ -67,4 +67,11 @@ export type SolanaClient = {
 
   /** Best-effort health check: returns ok if the RPC responds within a reasonable timeout. */
   checkHealth(): Promise<Result<true, DomainError>>;
+
+  /**
+   * Get the SOL balance of a wallet identified by its base58 private key.
+   * Used to monitor the fee payer hot wallet balance.
+   * Returns lamports (1 SOL = 1_000_000_000 lamports).
+   */
+  getFeePagerBalance(privateKeyBase58: string): Promise<Result<number, DomainError>>;
 };

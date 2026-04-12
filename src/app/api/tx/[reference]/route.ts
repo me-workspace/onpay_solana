@@ -159,7 +159,8 @@ export const POST = withErrorHandler(
       throw apiError("NOT_FOUND", "Merchant not found");
     }
 
-    // 4. Build the unsigned transaction via the use case.
+    // 4. Build the transaction via the use case. If a fee payer is configured,
+    //    pass its private key so the use case can partially sign.
     const inputMint = body.inputMint ?? merchant.settlementMint;
     const txResult = await buildPaymentTransaction(
       {
@@ -168,6 +169,9 @@ export const POST = withErrorHandler(
         buyerWallet: body.account,
         inputMint,
         slippageBps: serverEnv.JUPITER_MAX_SLIPPAGE_BPS,
+        ...(serverEnv.FEE_PAYER_PRIVATE_KEY !== undefined
+          ? { feePayerPrivateKey: serverEnv.FEE_PAYER_PRIVATE_KEY }
+          : {}),
       },
       {
         solana: createSolanaClient(),
@@ -203,9 +207,26 @@ export const POST = withErrorHandler(
       {
         inputAmount: txResult.value.inputAmount.toString(),
         outputAmount: txResult.value.outputAmount.toString(),
+        feePayerEnabled: serverEnv.FEE_PAYER_PRIVATE_KEY !== undefined,
       },
       "built payment transaction",
     );
+
+    // Check fee payer balance and log warning if running low.
+    // This is async but non-blocking — we don't wait for it, and failures
+    // are swallowed. The tx has already been built; this is purely ops alerting.
+    if (serverEnv.FEE_PAYER_PRIVATE_KEY !== undefined) {
+      const solanaClient = createSolanaClient();
+      void solanaClient.getFeePagerBalance(serverEnv.FEE_PAYER_PRIVATE_KEY).then((result) => {
+        if (result.ok && result.value < 100_000_000) {
+          // < 0.1 SOL
+          log.warn(
+            { balanceLamports: result.value },
+            "fee payer balance is low — top up the hot wallet soon",
+          );
+        }
+      });
+    }
 
     const response: PostResponse = {
       transaction: txResult.value.transactionBase64,
