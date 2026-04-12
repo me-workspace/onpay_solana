@@ -45,6 +45,24 @@ import { isWalletSanctioned } from "@/lib/sanctions";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/**
+ * CORS headers required by the Solana Pay spec. Wallet apps (Solflare,
+ * Phantom mobile, Backpack) make cross-origin requests from their in-app
+ * browsers or native HTTP clients. Without these headers, the browser's
+ * same-origin policy blocks the request and the scan silently fails.
+ */
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+} as const;
+
+/** Preflight handler — wallets send OPTIONS before POST. */
+// eslint-disable-next-line @typescript-eslint/require-await
+export async function OPTIONS(): Promise<Response> {
+  return new Response(null, { status: 204, headers: CORS_HEADERS });
+}
+
 // ---------------------------------------------------------------------------
 // GET — return the metadata the wallet shows in the user-facing prompt.
 // ---------------------------------------------------------------------------
@@ -89,7 +107,7 @@ export const GET = withErrorHandler(
       icon: `${publicEnv.NEXT_PUBLIC_APP_URL}/favicon.ico`,
     };
 
-    return NextResponse.json(response, { status: 200 });
+    return NextResponse.json(response, { status: 200, headers: CORS_HEADERS });
   },
 );
 
@@ -243,6 +261,6 @@ export const POST = withErrorHandler(
       message: txResult.value.message,
     };
 
-    return NextResponse.json(response, { status: 200 });
+    return NextResponse.json(response, { status: 200, headers: CORS_HEADERS });
   },
 );
