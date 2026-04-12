@@ -106,11 +106,11 @@ export function createRateLimiter(config: RateLimitConfig): {
 
 /**
  * Strict limiter for auth flow endpoints — prevent brute-force guessing.
- * 10 req / min per key, burst up to 10.
+ * 5 req / min per key, burst up to 5.
  */
 export const authRateLimiter = createRateLimiter({
-  capacity: 10,
-  refillPerSecond: 10 / 60,
+  capacity: 5,
+  refillPerSecond: 5 / 60,
 });
 
 /**

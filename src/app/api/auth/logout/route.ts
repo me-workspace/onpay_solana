@@ -23,7 +23,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   const response = NextResponse.json({ ok: true }, { status: 200 });
   response.cookies.set(SESSION_COOKIE_NAME, "", {
     httpOnly: true,
-    sameSite: "lax",
+    sameSite: "strict",
     path: "/",
     maxAge: 0,
   });

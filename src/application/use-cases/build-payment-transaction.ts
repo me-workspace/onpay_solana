@@ -224,15 +224,15 @@ export async function buildPaymentTransaction(
   if (!altAccountsResult.ok) return altAccountsResult;
 
   // 9. Parse the optional fee-payer keypair.
+  //    SECURITY: the private key is isolated in its own try-catch so it never
+  //    leaks into error causes, domain errors, or log output.
   let feePayerKeypair: Keypair | null = null;
   if (input.feePayerPrivateKey !== undefined) {
-    const pkBase58 = input.feePayerPrivateKey;
-    const parseKeypairResult = trySync(
-      () => Keypair.fromSecretKey(bs58.decode(pkBase58)),
-      (cause) => domainError("INTERNAL_ERROR", "Invalid fee payer private key", { cause }),
-    );
-    if (!parseKeypairResult.ok) return parseKeypairResult;
-    feePayerKeypair = parseKeypairResult.value;
+    try {
+      feePayerKeypair = Keypair.fromSecretKey(bs58.decode(input.feePayerPrivateKey));
+    } catch {
+      return err(domainError("INTERNAL_ERROR", "Invalid fee payer configuration"));
+    }
   }
 
   // The account that pays the transaction fee + ATA rent.

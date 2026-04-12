@@ -19,12 +19,13 @@ import { createInvoice } from "@/application/use-cases/create-invoice";
 import { publicEnv } from "@/config/env";
 import { serverEnv } from "@/config/env.server";
 import type { Invoice } from "@/domain/entities/invoice";
+import type { MerchantId } from "@/domain/entities/merchant";
 import { formatMoney } from "@/domain/value-objects/money";
 import { getDb } from "@/infrastructure/db/client";
 import { createInvoiceRepository } from "@/infrastructure/db/invoice-repo";
 import { createMerchantRepository } from "@/infrastructure/db/merchant-repo";
 import { apiError } from "@/lib/api-error";
-import { requireAuthenticatedWallet } from "@/lib/auth";
+import { requireAuthWithScope } from "@/lib/auth";
 import {
   clientKeyFromRequest,
   enforceRateLimit,
@@ -50,11 +51,26 @@ const SUPPORTED_CURRENCIES: Record<string, { decimals: number }> = {
  * session cookie. Anyone calling this endpoint MUST be authenticated
  * as the wallet they want the invoice credited to.
  */
+/** Rejects strings containing HTML-unsafe characters to prevent XSS. */
+const noHtmlChars = (val: string | null) => val === null || !/[<>"'&]/.test(val);
+
 const createInvoiceSchema = z.object({
   amountDecimal: z.string().min(1).max(20),
   currency: z.string().min(3).max(8).default("USD"),
-  label: z.string().max(200).nullable().optional().default(null),
-  memo: z.string().max(500).nullable().optional().default(null),
+  label: z
+    .string()
+    .max(200)
+    .nullable()
+    .optional()
+    .default(null)
+    .refine(noHtmlChars, { message: "Must not contain HTML characters" }),
+  memo: z
+    .string()
+    .max(500)
+    .nullable()
+    .optional()
+    .default(null)
+    .refine(noHtmlChars, { message: "Must not contain HTML characters" }),
 });
 
 type InvoiceResponse = {
@@ -118,7 +134,7 @@ type ListResponse = {
 
 export const GET = withErrorHandler(async (req: NextRequest) => {
   enforceRateLimit(mutationRateLimiter.check(clientKeyFromRequest(req)), "invoices/list");
-  const authenticatedWallet = await requireAuthenticatedWallet(req);
+  const auth = await requireAuthWithScope(req, "invoices:read");
 
   const queryResult = listQuerySchema.safeParse({
     status: req.nextUrl.searchParams.get("status") ?? undefined,
@@ -134,19 +150,27 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
   const db = getDb();
   const merchantRepo = createMerchantRepository(db);
-  const merchantResult = await merchantRepo.findByWallet(authenticatedWallet);
-  if (!merchantResult.ok) {
-    throw apiError("INTERNAL_ERROR", "Failed to fetch merchant");
-  }
-  if (merchantResult.value === null) {
-    // No merchant row yet — empty list is the correct answer, not 404.
-    return NextResponse.json({ invoices: [], limit, offset } satisfies ListResponse, {
-      status: 200,
-    });
+
+  // Resolve merchant ID — session auth uses wallet lookup, API key already has it.
+  let merchantId: MerchantId;
+  if (auth.method === "session") {
+    const merchantResult = await merchantRepo.findByWallet(auth.wallet);
+    if (!merchantResult.ok) {
+      throw apiError("INTERNAL_ERROR", "Failed to fetch merchant");
+    }
+    if (merchantResult.value === null) {
+      // No merchant row yet — empty list is the correct answer, not 404.
+      return NextResponse.json({ invoices: [], limit, offset } satisfies ListResponse, {
+        status: 200,
+      });
+    }
+    merchantId = merchantResult.value.id;
+  } else {
+    merchantId = auth.merchantId;
   }
 
   const invoiceRepo = createInvoiceRepository(db);
-  const listResult = await invoiceRepo.listByMerchant(merchantResult.value.id, {
+  const listResult = await invoiceRepo.listByMerchant(merchantId, {
     ...(status !== undefined ? { status } : {}),
     limit,
     offset,
@@ -165,7 +189,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
 export const POST = withErrorHandler(async (req: NextRequest) => {
   enforceRateLimit(mutationRateLimiter.check(clientKeyFromRequest(req)), "invoices/create");
-  const authenticatedWallet = await requireAuthenticatedWallet(req);
+  const auth = await requireAuthWithScope(req, "invoices:write");
   const body = await parseJsonBody(req, createInvoiceSchema);
 
   // 1. Validate currency.
@@ -175,20 +199,34 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     throw apiError("INVALID_REQUEST", `Unsupported currency: ${currencyKey}`);
   }
 
-  // 2. Look up the merchant by authenticated wallet.
+  // 2. Look up the merchant — session auth uses wallet, API key has merchantId.
   const db = getDb();
   const merchantRepo = createMerchantRepository(db);
-  const merchantResult = await merchantRepo.findByWallet(authenticatedWallet);
-  if (!merchantResult.ok) {
-    throw apiError("INTERNAL_ERROR", "Failed to fetch merchant", {
-      cause: merchantResult.error,
-    });
-  }
-  if (merchantResult.value === null) {
-    throw apiError("NOT_FOUND", "Merchant not registered. Call POST /api/merchants first.");
-  }
 
-  const merchant = merchantResult.value;
+  let merchant;
+  if (auth.method === "session") {
+    const merchantResult = await merchantRepo.findByWallet(auth.wallet);
+    if (!merchantResult.ok) {
+      throw apiError("INTERNAL_ERROR", "Failed to fetch merchant", {
+        cause: merchantResult.error,
+      });
+    }
+    if (merchantResult.value === null) {
+      throw apiError("NOT_FOUND", "Merchant not registered. Call POST /api/merchants first.");
+    }
+    merchant = merchantResult.value;
+  } else {
+    const merchantResult = await merchantRepo.findById(auth.merchantId);
+    if (!merchantResult.ok) {
+      throw apiError("INTERNAL_ERROR", "Failed to fetch merchant", {
+        cause: merchantResult.error,
+      });
+    }
+    if (merchantResult.value === null) {
+      throw apiError("NOT_FOUND", "Merchant not found for this API key.");
+    }
+    merchant = merchantResult.value;
+  }
 
   // 3. Create the invoice via the use case, wrapped in idempotency.
   return withIdempotency(req, merchant.id, db, async () => {

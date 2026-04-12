@@ -15,7 +15,7 @@
  *   4. Compare the computed hex digest with `v1` (constant-time).
  *   5. Reject if the timestamp is too old (e.g. > 5 minutes) to prevent replay.
  */
-import { createHmac, randomBytes, randomUUID } from "node:crypto";
+import { createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 
 /**
  * Generate a 32-byte hex-encoded webhook signing secret.
@@ -52,6 +52,55 @@ export function signWebhookPayload(secret: string, timestamp: number, body: stri
  * @param eventType - The event type string, e.g. "invoice.paid"
  * @returns Headers to attach to the POST request
  */
+/**
+ * Verify a webhook signature provided by the caller.
+ *
+ * Performs constant-time comparison to prevent timing attacks and checks
+ * that the timestamp is within `maxAgeSeconds` to prevent replay attacks.
+ *
+ * @param secret             - Hex-encoded HMAC secret
+ * @param timestamp          - Unix timestamp (seconds) from the signature header
+ * @param body               - Raw JSON body string
+ * @param providedSignature  - Hex-encoded HMAC signature provided by the caller
+ * @param maxAgeSeconds      - Maximum age of the timestamp in seconds (default 300)
+ * @returns `true` if the signature is valid and the timestamp is fresh
+ */
+export function verifyWebhookSignature(
+  secret: string,
+  timestamp: number,
+  body: string,
+  providedSignature: string,
+  maxAgeSeconds = 300,
+): boolean {
+  // Check timestamp freshness to prevent replay attacks.
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  if (Math.abs(nowSeconds - timestamp) > maxAgeSeconds) {
+    return false;
+  }
+
+  // Compute the expected signature.
+  const expected = signWebhookPayload(secret, timestamp, body);
+
+  // Pad both buffers to equal length for timingSafeEqual (requires equal-length inputs).
+  const expectedBuf = Buffer.from(expected, "utf8");
+  const providedBuf = Buffer.from(providedSignature, "utf8");
+  const maxLen = Math.max(expectedBuf.length, providedBuf.length);
+
+  // If either is empty, reject immediately.
+  if (maxLen === 0) return false;
+
+  const paddedExpected = Buffer.alloc(maxLen, 0);
+  const paddedProvided = Buffer.alloc(maxLen, 0);
+  expectedBuf.copy(paddedExpected);
+  providedBuf.copy(paddedProvided);
+
+  // Constant-time comparison — prevents timing side-channel attacks.
+  const signaturesMatch = timingSafeEqual(paddedExpected, paddedProvided);
+
+  // Also check lengths match to reject padded forgeries.
+  return signaturesMatch && expectedBuf.length === providedBuf.length;
+}
+
 export function buildWebhookHeaders(
   secret: string,
   body: string,

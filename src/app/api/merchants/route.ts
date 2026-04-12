@@ -17,6 +17,7 @@ import { getDb } from "@/infrastructure/db/client";
 import { createMerchantRepository } from "@/infrastructure/db/merchant-repo";
 import { apiError } from "@/lib/api-error";
 import { requireAuthenticatedWallet } from "@/lib/auth";
+import { isWalletSanctioned } from "@/lib/sanctions";
 import {
   clientKeyFromRequest,
   enforceRateLimit,
@@ -64,6 +65,10 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   enforceRateLimit(mutationRateLimiter.check(clientKeyFromRequest(req)), "merchants");
   const authenticatedWallet = await requireAuthenticatedWallet(req);
 
+  if (isWalletSanctioned(authenticatedWallet)) {
+    throw apiError("FORBIDDEN", "This wallet address is restricted and cannot use OnPay.");
+  }
+
   const merchantRepo = createMerchantRepository(getDb());
   const result = await merchantRepo.findByWallet(authenticatedWallet);
   if (!result.ok) {
@@ -81,6 +86,11 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 export const POST = withErrorHandler(async (req: NextRequest) => {
   enforceRateLimit(mutationRateLimiter.check(clientKeyFromRequest(req)), "merchants");
   const authenticatedWallet = await requireAuthenticatedWallet(req);
+
+  if (isWalletSanctioned(authenticatedWallet)) {
+    throw apiError("FORBIDDEN", "This wallet address is restricted and cannot use OnPay.");
+  }
+
   const body = await parseJsonBody(req, upsertSchema);
 
   const result = await upsertMerchant(

@@ -110,7 +110,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   response.cookies.set(SESSION_COOKIE_NAME, sessionJwt, {
     httpOnly: true,
     secure: serverEnv.NODE_ENV === "production",
-    sameSite: "lax",
+    sameSite: "strict",
     path: "/",
     maxAge: serverEnv.SESSION_TTL_SECONDS,
   });

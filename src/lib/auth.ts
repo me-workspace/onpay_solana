@@ -192,6 +192,33 @@ export type AuthResult =
       readonly scopes: readonly string[];
     };
 
+/**
+ * Require authentication and validate that the caller has the required scope.
+ *
+ * Session-authenticated users (wallet login) have full permissions — no scope
+ * check is applied. API key callers must have the required scope in their
+ * key's scope list, or a 403 FORBIDDEN is thrown.
+ *
+ * @param req           - The incoming request
+ * @param requiredScope - The scope string the caller must possess (e.g. "invoices:read")
+ */
+export async function requireAuthWithScope(
+  req: NextRequest,
+  requiredScope: string,
+): Promise<AuthResult> {
+  const auth = await requireAuth(req);
+
+  // Session auth (wallet) has full permissions — no scope restriction.
+  if (auth.method === "session") return auth;
+
+  // API key auth — check scopes.
+  if (!auth.scopes.includes(requiredScope)) {
+    throw apiError("FORBIDDEN", `API key does not have the required scope: ${requiredScope}`);
+  }
+
+  return auth;
+}
+
 export async function requireAuth(req: NextRequest): Promise<AuthResult> {
   // 1. Try session cookie first.
   const wallet = await getAuthenticatedWallet(req);

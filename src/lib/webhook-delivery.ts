@@ -24,7 +24,7 @@ import { buildWebhookHeaders } from "./webhook-signing";
 const MAX_ATTEMPTS = 5;
 
 /** Timeout for each HTTP POST to the merchant's URL (ms). */
-const DELIVERY_TIMEOUT_MS = 10_000;
+const DELIVERY_TIMEOUT_MS = 3_000;
 
 /** Maximum response body length to store for debugging (bytes). */
 const MAX_RESPONSE_BODY_BYTES = 1024;
