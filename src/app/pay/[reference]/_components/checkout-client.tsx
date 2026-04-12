@@ -206,18 +206,17 @@ function PendingView({ invoice }: { readonly invoice: CheckoutInvoice }): React.
                 className="mx-auto block h-auto w-full max-w-[240px]"
               />
             </div>
-            {isMobile ? (
-              <a
-                href={invoice.paymentUrl}
-                className="mt-3 inline-flex w-full max-w-[240px] items-center justify-center rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800"
-              >
-                Open in wallet app
-              </a>
-            ) : (
-              <p className="mt-3 text-center text-xs text-slate-500">
-                Scan with Phantom, Backpack, or Solflare
-              </p>
-            )}
+            <a
+              href={invoice.paymentUrl}
+              className="mt-3 inline-flex w-full max-w-[240px] items-center justify-center rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800"
+            >
+              Open in wallet app
+            </a>
+            <p className="mt-2 max-w-[240px] text-center text-xs text-slate-400">
+              {isMobile
+                ? "Tap the button above, or scan QR from another device."
+                : "Or scan QR using the home screen scanner in Phantom, Backpack, or Solflare. Do not use the Send scanner."}
+            </p>
           </div>
 
           {/* QRIS QR */}
@@ -255,23 +254,19 @@ function PendingView({ invoice }: { readonly invoice: CheckoutInvoice }): React.
             </div>
           </div>
 
-          {isMobile ? (
-            <div className="mt-6 flex flex-col items-center gap-3">
-              <a
-                href={invoice.paymentUrl}
-                className="inline-flex w-full max-w-xs items-center justify-center rounded-lg bg-slate-900 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-800"
-              >
-                Open in wallet app
-              </a>
-              <p className="max-w-xs text-center text-xs text-slate-500">
-                Or share the QR with someone else to scan from their phone.
-              </p>
-            </div>
-          ) : (
-            <p className="mt-6 text-center text-sm text-slate-600">
-              Scan with any Solana Pay-compatible wallet (Phantom, Backpack, Solflare).
+          <div className="mt-6 flex flex-col items-center gap-3">
+            <a
+              href={invoice.paymentUrl}
+              className="inline-flex w-full max-w-xs items-center justify-center rounded-lg bg-slate-900 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-800"
+            >
+              Open in wallet app
+            </a>
+            <p className="max-w-xs text-center text-xs text-slate-400">
+              {isMobile
+                ? "Tap the button above, or scan QR from another device."
+                : "Or scan QR using the home screen scanner in Phantom, Backpack, or Solflare. Do not use the Send scanner."}
             </p>
-          )}
+          </div>
         </>
       )}
 
