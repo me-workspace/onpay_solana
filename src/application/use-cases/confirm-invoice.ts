@@ -23,6 +23,7 @@
 import type { Invoice } from "@/domain/entities/invoice";
 import type { DomainError } from "@/domain/errors";
 import { domainError } from "@/domain/errors";
+import type { Database } from "@/infrastructure/db/client";
 import { err, ok, type Result } from "@/lib/result";
 
 import type { Clock } from "../ports/clock";
@@ -35,6 +36,8 @@ export type ConfirmInvoiceDeps = {
   readonly payments: PaymentRepository;
   readonly solana: SolanaClient;
   readonly clock: Clock;
+  /** Database instance for webhook dispatch. Optional for backward compat. */
+  readonly db?: Database;
 };
 
 /**
@@ -60,6 +63,20 @@ export async function confirmInvoice(
   const now = deps.clock.now();
   if (invoice.expiresAt.getTime() <= now.getTime()) {
     const updated = await deps.invoices.updateStatus(invoice.id, "expired");
+    // Dispatch webhook event asynchronously (fire-and-forget).
+    if (updated.ok && updated.value.status === "expired" && deps.db !== undefined) {
+      const { dispatchInvoiceEvent } = await import("@/lib/webhook-delivery");
+      dispatchInvoiceEvent(
+        deps.db,
+        {
+          id: updated.value.id,
+          merchantId: updated.value.merchantId,
+          reference: updated.value.reference,
+          status: updated.value.status,
+        },
+        "invoice.expired",
+      );
+    }
     return updated;
   }
 
@@ -85,7 +102,21 @@ export async function confirmInvoice(
     // Already have the payment row; ensure invoice status is paid.
     // (Invoice is guaranteed to still be `pending` because we returned
     // early at the top of this function if it wasn't.)
-    return deps.invoices.updateStatus(invoice.id, "paid");
+    const paidResult = await deps.invoices.updateStatus(invoice.id, "paid");
+    if (paidResult.ok && paidResult.value.status === "paid" && deps.db !== undefined) {
+      const { dispatchInvoiceEvent } = await import("@/lib/webhook-delivery");
+      dispatchInvoiceEvent(
+        deps.db,
+        {
+          id: paidResult.value.id,
+          merchantId: paidResult.value.merchantId,
+          reference: paidResult.value.reference,
+          status: paidResult.value.status,
+        },
+        "invoice.paid",
+      );
+    }
+    return paidResult;
   }
 
   // Record the payment. We store the output amount from the invoice as the
@@ -114,5 +145,19 @@ export async function confirmInvoice(
     );
   }
 
-  return deps.invoices.updateStatus(invoice.id, "paid");
+  const finalResult = await deps.invoices.updateStatus(invoice.id, "paid");
+  if (finalResult.ok && finalResult.value.status === "paid" && deps.db !== undefined) {
+    const { dispatchInvoiceEvent } = await import("@/lib/webhook-delivery");
+    dispatchInvoiceEvent(
+      deps.db,
+      {
+        id: finalResult.value.id,
+        merchantId: finalResult.value.merchantId,
+        reference: finalResult.value.reference,
+        status: finalResult.value.status,
+      },
+      "invoice.paid",
+    );
+  }
+  return finalResult;
 }

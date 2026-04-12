@@ -211,6 +211,77 @@ export function revokeApiKeyApi(id: string): Promise<{ ok: true; id: string }> {
 }
 
 // ---------------------------------------------------------------------------
+// Webhooks
+// ---------------------------------------------------------------------------
+
+export type WebhookEndpointApi = {
+  readonly id: string;
+  readonly url: string;
+  readonly events: readonly string[];
+  readonly enabled: boolean;
+  readonly createdAt: string;
+};
+
+export type ListWebhookEndpointsResponse = {
+  readonly endpoints: readonly WebhookEndpointApi[];
+};
+
+export type CreateWebhookEndpointBody = {
+  readonly url: string;
+  readonly events: readonly string[];
+};
+
+export type CreateWebhookEndpointResponse = WebhookEndpointApi & {
+  /** The signing secret — shown once, never again. Store it securely. */
+  readonly secret: string;
+};
+
+export type WebhookDeliveryApi = {
+  readonly id: string;
+  readonly eventType: string;
+  readonly httpStatus: number | null;
+  readonly responseBody: string | null;
+  readonly attempts: number;
+  readonly nextRetryAt: string | null;
+  readonly deliveredAt: string | null;
+  readonly createdAt: string;
+};
+
+export type ListWebhookDeliveriesResponse = {
+  readonly deliveries: readonly WebhookDeliveryApi[];
+};
+
+export function listWebhookEndpointsApi(
+  signal?: AbortSignal,
+): Promise<ListWebhookEndpointsResponse> {
+  const init = signal !== undefined ? { signal } : undefined;
+  return apiFetch<ListWebhookEndpointsResponse>("/api/webhooks", init);
+}
+
+export function createWebhookEndpointApi(
+  body: CreateWebhookEndpointBody,
+): Promise<CreateWebhookEndpointResponse> {
+  return apiFetch<CreateWebhookEndpointResponse>("/api/webhooks", { method: "POST", body });
+}
+
+export function deleteWebhookEndpointApi(id: string): Promise<{ ok: true; id: string }> {
+  return apiFetch<{ ok: true; id: string }>(`/api/webhooks/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}
+
+export function listWebhookDeliveriesApi(
+  endpointId: string,
+  signal?: AbortSignal,
+): Promise<ListWebhookDeliveriesResponse> {
+  const init = signal !== undefined ? { signal } : undefined;
+  return apiFetch<ListWebhookDeliveriesResponse>(
+    `/api/webhooks/${encodeURIComponent(endpointId)}`,
+    init,
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Invoices
 // ---------------------------------------------------------------------------
 export type CreateInvoiceBody = {

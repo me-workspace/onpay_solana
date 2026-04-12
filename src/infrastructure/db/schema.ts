@@ -20,6 +20,7 @@
  */
 import { relations } from "drizzle-orm";
 import {
+  boolean,
   index,
   integer,
   pgEnum,
@@ -154,6 +155,7 @@ export const apiKeys = pgTable(
 export const merchantsRelations = relations(merchants, ({ many }) => ({
   invoices: many(invoices),
   apiKeys: many(apiKeys),
+  webhookEndpoints: many(webhookEndpoints),
 }));
 
 export const invoicesRelations = relations(invoices, ({ one, many }) => ({
@@ -211,6 +213,77 @@ export const idempotencyKeys = pgTable(
 );
 
 // ---------------------------------------------------------------------------
+// Webhook Endpoints
+// ---------------------------------------------------------------------------
+export const webhookEndpoints = pgTable(
+  "webhook_endpoints",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    merchantId: uuid("merchant_id")
+      .notNull()
+      .references(() => merchants.id, { onDelete: "cascade" }),
+    /** HTTPS URL the merchant wants events delivered to. */
+    url: text("url").notNull(),
+    /** HMAC signing secret, hex-encoded (generated server-side). */
+    secret: text("secret").notNull(),
+    /** Which events to deliver, e.g. ["invoice.paid", "invoice.expired", "invoice.failed"]. */
+    events: text("events").array().notNull(),
+    enabled: boolean("enabled").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [index("webhook_endpoints_merchant_idx").on(table.merchantId)],
+);
+
+// ---------------------------------------------------------------------------
+// Webhook Deliveries
+// ---------------------------------------------------------------------------
+export const webhookDeliveries = pgTable(
+  "webhook_deliveries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    endpointId: uuid("endpoint_id")
+      .notNull()
+      .references(() => webhookEndpoints.id, { onDelete: "cascade" }),
+    /** Event type, e.g. "invoice.paid". */
+    eventType: text("event_type").notNull(),
+    /** JSON string of the event body. */
+    payload: text("payload").notNull(),
+    /** HTTP status code returned by the merchant's server. */
+    httpStatus: integer("http_status"),
+    /** First 1KB of the response body for debugging. */
+    responseBody: text("response_body"),
+    /** Number of delivery attempts so far. */
+    attempts: integer("attempts").notNull().default(0),
+    /** When the next retry should happen. Null means no more retries. */
+    nextRetryAt: timestamp("next_retry_at", { withTimezone: true, mode: "date" }),
+    /** Set when httpStatus is 2xx — the delivery was successful. */
+    deliveredAt: timestamp("delivered_at", { withTimezone: true, mode: "date" }),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("webhook_deliveries_endpoint_created_idx").on(table.endpointId, table.createdAt),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Webhook Relations
+// ---------------------------------------------------------------------------
+export const webhookEndpointsRelations = relations(webhookEndpoints, ({ one, many }) => ({
+  merchant: one(merchants, {
+    fields: [webhookEndpoints.merchantId],
+    references: [merchants.id],
+  }),
+  deliveries: many(webhookDeliveries),
+}));
+
+export const webhookDeliveriesRelations = relations(webhookDeliveries, ({ one }) => ({
+  endpoint: one(webhookEndpoints, {
+    fields: [webhookDeliveries.endpointId],
+    references: [webhookEndpoints.id],
+  }),
+}));
+
+// ---------------------------------------------------------------------------
 // Inferred row types — consumed by the invoice-repo adapter for row→domain mapping.
 // ---------------------------------------------------------------------------
 export type MerchantRow = typeof merchants.$inferSelect;
@@ -223,3 +296,7 @@ export type IdempotencyKeyRow = typeof idempotencyKeys.$inferSelect;
 export type NewIdempotencyKeyRow = typeof idempotencyKeys.$inferInsert;
 export type ApiKeyRow = typeof apiKeys.$inferSelect;
 export type NewApiKeyRow = typeof apiKeys.$inferInsert;
+export type WebhookEndpointRow = typeof webhookEndpoints.$inferSelect;
+export type NewWebhookEndpointRow = typeof webhookEndpoints.$inferInsert;
+export type WebhookDeliveryRow = typeof webhookDeliveries.$inferSelect;
+export type NewWebhookDeliveryRow = typeof webhookDeliveries.$inferInsert;

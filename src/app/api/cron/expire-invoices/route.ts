@@ -25,6 +25,7 @@ import { apiError } from "@/lib/api-error";
 import { withErrorHandler } from "@/lib/http";
 import { cleanupExpiredIdempotencyKeys } from "@/lib/idempotency";
 import { logger } from "@/lib/logger";
+import { retryPendingWebhooks } from "@/lib/webhook-delivery";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,6 +34,7 @@ type Response = {
   readonly expired: number;
   readonly idempotencyKeysCleanedUp: number;
   readonly revokedSessionsCleanedUp: number;
+  readonly webhooksRetried: number;
   readonly at: string;
 };
 
@@ -79,8 +81,16 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     log.warn({ err: cause }, "failed to clean up revoked sessions (non-fatal)");
   }
 
+  // Retry pending webhook deliveries.
+  let webhooksRetried = 0;
+  try {
+    webhooksRetried = await retryPendingWebhooks(db);
+  } catch (cause: unknown) {
+    log.warn({ err: cause }, "failed to retry pending webhooks (non-fatal)");
+  }
+
   log.info(
-    { expired: result.value, idempotencyKeysCleanedUp, revokedSessionsCleanedUp },
+    { expired: result.value, idempotencyKeysCleanedUp, revokedSessionsCleanedUp, webhooksRetried },
     "expiration sweep complete",
   );
 
@@ -88,6 +98,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     expired: result.value,
     idempotencyKeysCleanedUp,
     revokedSessionsCleanedUp,
+    webhooksRetried,
     at: now.toISOString(),
   };
   return NextResponse.json(body, { status: 200 });

@@ -17,6 +17,7 @@ import { useEffect, useState } from "react";
 import { Logo } from "@/components/brand/logo";
 import { CopyButton } from "@/components/ui/copy-button";
 import { ConnectWalletButton } from "@/components/wallet/connect-button";
+import { publicEnv } from "@/config/env";
 import { ApiClientError, getInvoiceApi, type InvoiceApi } from "@/lib/api-client";
 import { useIsMobile } from "@/lib/use-is-mobile";
 
@@ -112,6 +113,7 @@ export function InvoiceDisplayClient({ invoiceId }: { invoiceId: string }): Reac
 
 function PendingView({ invoice }: { invoice: InvoiceApi }): React.JSX.Element {
   const isMobile = useIsMobile();
+  const checkoutUrl = `${publicEnv.NEXT_PUBLIC_APP_URL}/pay/${encodeURIComponent(invoice.reference)}`;
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-6 sm:p-8">
@@ -156,7 +158,7 @@ function PendingView({ invoice }: { invoice: InvoiceApi }): React.JSX.Element {
 
       {/* Copy payment link — useful when sharing remotely. */}
       <div className="mt-5 flex justify-center gap-3">
-        <CopyButton value={invoice.paymentUrl} label="Copy payment link" />
+        <CopyButton value={checkoutUrl} label="Copy payment link" />
       </div>
 
       {/* Gas fee notice */}
