@@ -233,6 +233,30 @@ OFAC sanctions screening, session revocation, idempotency keys, HMAC-SHA256 sign
 | Card fallback (future) | **1.9% + $0.30** | When card on-ramp ships |
 | Free tier | **0%** | Merchants under $500/month volume — always free |
 
+## Third-party and QRIS fees (Year 2, when integrated)
+
+When OnPay integrates QRIS (Indonesia's national QR standard) via a Payment Service Provider (PJP) partner, additional fees apply on the QRIS payment path only. The crypto path fees remain unchanged.
+
+| Payment path | OnPay fee | PJP/QRIS MDR | Total to merchant | Settlement |
+|---|---|---|---|---|
+| **Crypto (wallet scan)** | 0.5-0.9% | None | **0.5-0.9%** | 2 seconds |
+| **QRIS (GoPay/OVO/DANA/bank)** | 0.3% | 0.7% (regulated by BI) | **1.0%** | Same-day (T+0 or T+1) |
+| **Card on-ramp** | 0.5% | 1.4% (interchange + on-ramp) | **1.9% + $0.30** | After card auth |
+
+QRIS MDR (Merchant Discount Rate) is regulated by Bank Indonesia at 0.7% for merchants with annual revenue under Rp 100 million (micro-merchants) and 0.7% for general merchants. The PJP partner (Flip, Xendit, DOKU, or Midtrans) collects this fee and shares a portion with OnPay as the referring sub-merchant platform.
+
+**QRIS cost example — Rp 50,000 coffee:**
+
+| Component | Amount |
+|---|---|
+| Invoice amount | Rp 50,000 |
+| QRIS MDR (0.7%) | Rp 350 (paid to PJP partner) |
+| OnPay fee (0.3%) | Rp 150 |
+| **Merchant receives** | **Rp 49,500 in USDC** |
+| **Total fee** | **Rp 500 (1.0%)** |
+
+Compare: credit card on the same Rp 50,000 transaction would cost Rp 2,250 (2.9% + Rp 4,800 fixed) — **4.5x more expensive than OnPay+QRIS**.
+
 ## Solana network costs (actual, April 2026)
 
 | Cost component | Amount (SOL) | Amount (USD at $150/SOL) | Who pays |
