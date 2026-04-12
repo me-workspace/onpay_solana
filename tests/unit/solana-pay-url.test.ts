@@ -21,26 +21,26 @@ describe("buildPaymentUrl", () => {
     expect(a).toBe(b);
   });
 
-  it("appends label and message as query params", () => {
+  it("does NOT append label or message as query params (Transaction Request spec)", () => {
     const url = buildPaymentUrl({
       baseUrl: "https://onpay.id",
       reference: FAKE_REFERENCE,
       label: "Kopi Canggu",
       message: "Iced Latte x2",
     });
-    expect(url).toContain("label=Kopi+Canggu");
-    expect(url).toContain("message=Iced+Latte+x2");
+    // Transaction Requests must NOT have query params — wallets get the
+    // label and icon from the GET response of the HTTPS endpoint.
+    expect(url).not.toContain("label=");
+    expect(url).not.toContain("message=");
+    expect(url).not.toContain("?");
   });
 
-  it("omits empty label and message", () => {
+  it("produces a clean URL with no query string", () => {
     const url = buildPaymentUrl({
       baseUrl: "https://onpay.id",
       reference: FAKE_REFERENCE,
-      label: "",
-      message: "",
     });
-    expect(url).not.toContain("label=");
-    expect(url).not.toContain("message=");
+    expect(url).toBe(`solana:${encodeURIComponent(`https://onpay.id/api/tx/${FAKE_REFERENCE}`)}`);
   });
 
   it("works with a localhost development URL", () => {

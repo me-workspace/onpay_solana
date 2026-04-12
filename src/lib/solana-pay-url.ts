@@ -1,7 +1,7 @@
 /**
  * Solana Pay URL builder.
  *
- * Generates the `solana://` URL that goes inside the QR code. This URL points
+ * Generates the `solana:` URL that goes inside the QR code. This URL points
  * to OnPay's Transaction Request endpoint, which the buyer's wallet calls to
  * fetch a transaction to sign.
  *
@@ -9,10 +9,15 @@
  *   https://docs.solanapay.com/spec
  *
  * Format for a Transaction Request:
- *   solana:<URL-encoded https URL>?label=<text>&message=<text>
+ *   solana:<URL-encoded https URL>
  *
- * Where the https URL is GET-able and returns `{ label, icon }`, and POST-able
- * and accepts `{ account }` to return `{ transaction, message }`.
+ * IMPORTANT: Transaction Request URLs must NOT include query params like
+ * `?label=` or `?message=`. Those are only valid for Transfer Requests
+ * (where the recipient is a pubkey, not a URL). For Transaction Requests,
+ * the label and icon are returned by the GET handler of the HTTPS endpoint.
+ * Appending query params causes wallets (Phantom, Solflare, Backpack) to
+ * misinterpret the URL as a Transfer Request, try to parse the encoded URL
+ * as a base58 pubkey, and fail with "Invalid address".
  */
 import type { InvoiceReference } from "@/domain/value-objects/reference";
 
@@ -21,34 +26,22 @@ export type BuildPaymentUrlInput = {
   readonly baseUrl: string;
   /** The invoice reference (path segment of the tx endpoint). */
   readonly reference: InvoiceReference;
-  /** Optional label shown to the buyer (typically the merchant's business name). */
+  /** @deprecated Ignored — label comes from the GET response, not the URL. */
   readonly label?: string | undefined;
-  /** Optional message shown to the buyer (typically the invoice description). */
+  /** @deprecated Ignored — message comes from the GET response, not the URL. */
   readonly message?: string | undefined;
 };
 
 /**
- * Build the Solana Pay URL string for an invoice. This string can be passed
- * directly into a QR code renderer; any Solana Pay-compatible wallet will
- * recognize it and call the underlying HTTPS endpoint.
+ * Build the Solana Pay Transaction Request URL for an invoice.
+ *
+ * The URL is simply `solana:<encoded-https-url>` — no query params.
+ * The wallet will:
+ *   1. GET the HTTPS URL → receives `{ label, icon }`
+ *   2. POST the HTTPS URL with `{ account }` → receives `{ transaction }`
  */
 export function buildPaymentUrl(input: BuildPaymentUrlInput): string {
-  // Strip a trailing slash so we don't end up with a double slash in the path.
   const base = input.baseUrl.replace(/\/+$/, "");
-  // Note: the path-segment must be percent-encoded for safety even though
-  // our reference uses a URL-safe alphabet.
   const txEndpoint = `${base}/api/tx/${encodeURIComponent(input.reference)}`;
-
-  // Per the Solana Pay spec, we URI-encode the underlying URL once, then
-  // append optional query parameters that the wallet may surface to the user.
-  const params = new URLSearchParams();
-  if (input.label !== undefined && input.label.length > 0) {
-    params.set("label", input.label);
-  }
-  if (input.message !== undefined && input.message.length > 0) {
-    params.set("message", input.message);
-  }
-
-  const querySuffix = params.toString().length > 0 ? `?${params.toString()}` : "";
-  return `solana:${encodeURIComponent(txEndpoint)}${querySuffix}`;
+  return `solana:${encodeURIComponent(txEndpoint)}`;
 }
