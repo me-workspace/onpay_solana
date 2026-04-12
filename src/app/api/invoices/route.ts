@@ -24,6 +24,8 @@ import { formatMoney } from "@/domain/value-objects/money";
 import { getDb } from "@/infrastructure/db/client";
 import { createInvoiceRepository } from "@/infrastructure/db/invoice-repo";
 import { createMerchantRepository } from "@/infrastructure/db/merchant-repo";
+import { qrisCharges } from "@/infrastructure/db/schema";
+import { createQrisCharge, isMidtransEnabled } from "@/infrastructure/midtrans/client";
 import { apiError } from "@/lib/api-error";
 import { requireAuthWithScope } from "@/lib/auth";
 import {
@@ -33,6 +35,7 @@ import {
   withErrorHandler,
 } from "@/lib/http";
 import { withIdempotency } from "@/lib/idempotency";
+import { logger } from "@/lib/logger";
 import { mutationRateLimiter } from "@/lib/rate-limit";
 import { buildPaymentUrl } from "@/lib/solana-pay-url";
 import { generateInvoiceReference } from "@/lib/solana-pubkey";
@@ -73,6 +76,15 @@ const createInvoiceSchema = z.object({
     .refine(noHtmlChars, { message: "Must not contain HTML characters" }),
 });
 
+/** Hardcoded USD→IDR rate for MVP. Will be replaced by FX API later. */
+const USD_TO_IDR_RATE = 16_000;
+
+type QrisResponseField = {
+  readonly qrisUrl: string;
+  readonly grossAmountIdr: number;
+  readonly status: string;
+} | null;
+
 type InvoiceResponse = {
   readonly id: string;
   readonly reference: string;
@@ -89,9 +101,10 @@ type InvoiceResponse = {
   readonly expiresAt: string;
   readonly createdAt: string;
   readonly paymentUrl: string;
+  readonly qris?: QrisResponseField;
 };
 
-function toResponse(invoice: Invoice): InvoiceResponse {
+function toResponse(invoice: Invoice, qris?: QrisResponseField): InvoiceResponse {
   return {
     id: invoice.id,
     reference: invoice.reference,
@@ -113,7 +126,21 @@ function toResponse(invoice: Invoice): InvoiceResponse {
       label: invoice.label ?? undefined,
       message: invoice.memo ?? undefined,
     }),
+    ...(qris !== undefined ? { qris } : {}),
   };
+}
+
+/**
+ * Convert an invoice amount to IDR (integer) for QRIS.
+ * For USD: multiply the decimal amount by the hardcoded rate.
+ * For IDR: use the raw amount directly (decimals is 0).
+ */
+function toIdrAmount(amountDecimal: string, currency: string): number {
+  const parsed = parseFloat(amountDecimal);
+  if (Number.isNaN(parsed) || parsed <= 0) return 0;
+  if (currency === "IDR") return Math.round(parsed);
+  if (currency === "USD") return Math.round(parsed * USD_TO_IDR_RATE);
+  return 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -180,7 +207,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   }
 
   const response: ListResponse = {
-    invoices: listResult.value.map(toResponse),
+    invoices: listResult.value.map((inv) => toResponse(inv)),
     limit,
     offset,
   };
@@ -253,6 +280,45 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       });
     }
 
-    return NextResponse.json(toResponse(invoiceResult.value), { status: 201 });
+    const invoice = invoiceResult.value;
+
+    // 4. Best-effort QRIS charge creation (if Midtrans is configured).
+    let qrisField: QrisResponseField | undefined;
+    if (isMidtransEnabled() && (currencyKey === "USD" || currencyKey === "IDR")) {
+      const qrisLog = logger.child({ invoiceId: invoice.id });
+      try {
+        const idrAmount = toIdrAmount(body.amountDecimal, currencyKey);
+        if (idrAmount > 0) {
+          const midtransOrderId = `${invoice.id}_qris_${String(Date.now())}`;
+          const charge = await createQrisCharge({
+            orderId: midtransOrderId,
+            grossAmount: idrAmount,
+          });
+
+          // Store the QRIS charge in the database.
+          await db.insert(qrisCharges).values({
+            invoiceId: invoice.id,
+            midtransOrderId,
+            midtransTransactionId: charge.transactionId,
+            qrisUrl: charge.qrisUrl,
+            grossAmount: idrAmount,
+            status: charge.transactionStatus,
+          });
+
+          qrisField = {
+            qrisUrl: charge.qrisUrl,
+            grossAmountIdr: idrAmount,
+            status: charge.transactionStatus,
+          };
+
+          qrisLog.info({ midtransOrderId, idrAmount }, "QRIS charge created for invoice");
+        }
+      } catch (qrisErr: unknown) {
+        // QRIS is best-effort — crypto QR still works.
+        qrisLog.warn({ err: qrisErr }, "QRIS charge creation failed (non-fatal)");
+      }
+    }
+
+    return NextResponse.json(toResponse(invoice, qrisField), { status: 201 });
   });
 });

@@ -44,6 +44,11 @@ export type CheckoutInvoice = {
   readonly expiresAt: string;
   readonly createdAt: string;
   readonly paymentUrl: string;
+  readonly qris?: {
+    readonly qrisUrl: string;
+    readonly grossAmountIdr: number;
+    readonly status: string;
+  } | null;
 };
 
 type DisplayState =
@@ -185,33 +190,89 @@ function PendingView({ invoice }: { readonly invoice: CheckoutInvoice }): React.
       </h1>
       {invoice.label !== null ? <p className="mt-1 text-slate-600">{invoice.label}</p> : null}
 
-      <div className="mt-8 flex justify-center">
-        <div className="w-full max-w-[320px] rounded-2xl border border-slate-200 bg-white p-4 sm:p-6">
-          <QRCodeSVG
-            value={invoice.paymentUrl}
-            size={280}
-            level="M"
-            className="mx-auto block h-auto w-full max-w-[280px]"
-          />
-        </div>
-      </div>
+      {invoice.qris?.qrisUrl != null ? (
+        /* Dual QR layout: crypto + QRIS side by side (stacked on mobile). */
+        <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2">
+          {/* Crypto QR */}
+          <div className="flex flex-col items-center">
+            <p className="mb-3 text-center text-sm font-medium text-slate-700">
+              Pay with crypto wallet
+            </p>
+            <div className="w-full max-w-[280px] rounded-2xl border border-slate-200 bg-white p-4">
+              <QRCodeSVG
+                value={invoice.paymentUrl}
+                size={240}
+                level="M"
+                className="mx-auto block h-auto w-full max-w-[240px]"
+              />
+            </div>
+            {isMobile ? (
+              <a
+                href={invoice.paymentUrl}
+                className="mt-3 inline-flex w-full max-w-[240px] items-center justify-center rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800"
+              >
+                Open in wallet app
+              </a>
+            ) : (
+              <p className="mt-3 text-center text-xs text-slate-500">
+                Scan with Phantom, Backpack, or Solflare
+              </p>
+            )}
+          </div>
 
-      {isMobile ? (
-        <div className="mt-6 flex flex-col items-center gap-3">
-          <a
-            href={invoice.paymentUrl}
-            className="inline-flex w-full max-w-xs items-center justify-center rounded-lg bg-slate-900 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-800"
-          >
-            Open in wallet app
-          </a>
-          <p className="max-w-xs text-center text-xs text-slate-500">
-            Or share the QR with someone else to scan from their phone.
-          </p>
+          {/* QRIS QR */}
+          <div className="flex flex-col items-center">
+            <p className="mb-3 text-center text-sm font-medium text-slate-700">Pay with QRIS</p>
+            <div className="w-full max-w-[280px] rounded-2xl border border-slate-200 bg-white p-4">
+              {/* Midtrans returns a hosted QR image URL -- next/image is not needed. */}
+              <img
+                src={invoice.qris.qrisUrl}
+                alt="QRIS QR code for payment"
+                width={240}
+                height={240}
+                className="mx-auto block h-auto w-full max-w-[240px]"
+              />
+            </div>
+            <p className="mt-3 text-center text-xs font-medium text-slate-600">
+              Rp {new Intl.NumberFormat("id-ID").format(invoice.qris.grossAmountIdr)}
+            </p>
+            <p className="mt-1 text-center text-xs text-slate-500">
+              GoPay, OVO, DANA, ShopeePay, Bank
+            </p>
+          </div>
         </div>
       ) : (
-        <p className="mt-6 text-center text-sm text-slate-600">
-          Scan with any Solana Pay-compatible wallet (Phantom, Backpack, Solflare).
-        </p>
+        /* Single QR layout: crypto only (original behavior). */
+        <>
+          <div className="mt-8 flex justify-center">
+            <div className="w-full max-w-[320px] rounded-2xl border border-slate-200 bg-white p-4 sm:p-6">
+              <QRCodeSVG
+                value={invoice.paymentUrl}
+                size={280}
+                level="M"
+                className="mx-auto block h-auto w-full max-w-[280px]"
+              />
+            </div>
+          </div>
+
+          {isMobile ? (
+            <div className="mt-6 flex flex-col items-center gap-3">
+              <a
+                href={invoice.paymentUrl}
+                className="inline-flex w-full max-w-xs items-center justify-center rounded-lg bg-slate-900 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-800"
+              >
+                Open in wallet app
+              </a>
+              <p className="max-w-xs text-center text-xs text-slate-500">
+                Or share the QR with someone else to scan from their phone.
+              </p>
+            </div>
+          ) : (
+            <p className="mt-6 text-center text-sm text-slate-600">
+              Scan with any Solana Pay-compatible wallet (Phantom, Backpack, Solflare).
+            </p>
+          )}
+        </>
       )}
 
       {/* Copy checkout link — useful when sharing remotely. */}

@@ -35,6 +35,11 @@ export type InvoiceApi = {
   readonly expiresAt: string;
   readonly createdAt: string;
   readonly paymentUrl: string;
+  readonly qris?: {
+    readonly qrisUrl: string;
+    readonly grossAmountIdr: number;
+    readonly status: string;
+  } | null;
 };
 
 export type ApiErrorBody = {

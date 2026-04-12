@@ -89,6 +89,16 @@ const serverEnvSchema = z.object({
   // ---- Invoice lifecycle -------------------------------------------------
   INVOICE_TTL_SECONDS: z.coerce.number().int().min(60).max(86_400).default(600),
 
+  // ---- Midtrans (QRIS) ---------------------------------------------------
+  /**
+   * Midtrans server key for Core API v2 charges. When set, QRIS payment
+   * is offered alongside the Solana Pay QR. Leave empty to disable QRIS.
+   */
+  MIDTRANS_SERVER_KEY: z.string().min(1).optional(),
+  MIDTRANS_CLIENT_KEY: emptyAsUndefined.pipe(z.string().min(1).optional()),
+  /** Whether to use the Midtrans production API. Defaults to sandbox. */
+  MIDTRANS_IS_PRODUCTION: z.coerce.boolean().default(false),
+
   // ---- Internal cron -----------------------------------------------------
   /**
    * Shared secret that must be present as `x-cron-secret` on every call

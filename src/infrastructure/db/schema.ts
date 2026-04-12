@@ -91,6 +91,31 @@ export const invoices = pgTable(
 );
 
 // ---------------------------------------------------------------------------
+// QRIS Charges (Midtrans)
+// ---------------------------------------------------------------------------
+export const qrisCharges = pgTable(
+  "qris_charges",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    invoiceId: uuid("invoice_id")
+      .notNull()
+      .references(() => invoices.id, { onDelete: "cascade" })
+      .unique(),
+    midtransOrderId: text("midtrans_order_id").notNull().unique(),
+    midtransTransactionId: text("midtrans_transaction_id"),
+    qrisUrl: text("qris_url").notNull(),
+    grossAmount: integer("gross_amount").notNull(),
+    status: text("status").notNull().default("pending"),
+    paidAt: timestamp("paid_at", { withTimezone: true, mode: "date" }),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("qris_charges_midtrans_order_id_idx").on(table.midtransOrderId),
+    index("qris_charges_invoice_id_idx").on(table.invoiceId),
+  ],
+);
+
+// ---------------------------------------------------------------------------
 // Payments
 // ---------------------------------------------------------------------------
 export const payments = pgTable(
@@ -164,11 +189,22 @@ export const invoicesRelations = relations(invoices, ({ one, many }) => ({
     references: [merchants.id],
   }),
   payments: many(payments),
+  qrisCharge: one(qrisCharges, {
+    fields: [invoices.id],
+    references: [qrisCharges.invoiceId],
+  }),
 }));
 
 export const paymentsRelations = relations(payments, ({ one }) => ({
   invoice: one(invoices, {
     fields: [payments.invoiceId],
+    references: [invoices.id],
+  }),
+}));
+
+export const qrisChargesRelations = relations(qrisCharges, ({ one }) => ({
+  invoice: one(invoices, {
+    fields: [qrisCharges.invoiceId],
     references: [invoices.id],
   }),
 }));
@@ -300,3 +336,5 @@ export type WebhookEndpointRow = typeof webhookEndpoints.$inferSelect;
 export type NewWebhookEndpointRow = typeof webhookEndpoints.$inferInsert;
 export type WebhookDeliveryRow = typeof webhookDeliveries.$inferSelect;
 export type NewWebhookDeliveryRow = typeof webhookDeliveries.$inferInsert;
+export type QrisChargeRow = typeof qrisCharges.$inferSelect;
+export type NewQrisChargeRow = typeof qrisCharges.$inferInsert;

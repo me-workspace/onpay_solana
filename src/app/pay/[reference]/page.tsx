@@ -11,17 +11,24 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { eq } from "drizzle-orm";
+
 import type { Invoice } from "@/domain/entities/invoice";
 import { formatMoney } from "@/domain/value-objects/money";
 import { parseInvoiceReference } from "@/domain/value-objects/reference";
 import { getDb } from "@/infrastructure/db/client";
 import { createInvoiceRepository } from "@/infrastructure/db/invoice-repo";
+import { qrisCharges } from "@/infrastructure/db/schema";
 import { buildPaymentUrl } from "@/lib/solana-pay-url";
 
 import { CheckoutClient, type CheckoutInvoice } from "./_components/checkout-client";
 
 /** Serialize the domain Invoice into the shape the client component expects. */
-function toCheckoutInvoice(invoice: Invoice, appUrl: string): CheckoutInvoice {
+function toCheckoutInvoice(
+  invoice: Invoice,
+  appUrl: string,
+  qris?: { qrisUrl: string; grossAmount: number; status: string } | null,
+): CheckoutInvoice {
   return {
     id: invoice.id,
     reference: invoice.reference,
@@ -42,6 +49,15 @@ function toCheckoutInvoice(invoice: Invoice, appUrl: string): CheckoutInvoice {
       label: invoice.label ?? undefined,
       message: invoice.memo ?? undefined,
     }),
+    ...(qris != null
+      ? {
+          qris: {
+            qrisUrl: qris.qrisUrl,
+            grossAmountIdr: qris.grossAmount,
+            status: qris.status,
+          },
+        }
+      : {}),
   };
 }
 
@@ -88,11 +104,24 @@ export default async function CheckoutPage({
     notFound();
   }
 
+  // Look up any associated QRIS charge.
+  const qrisRows = await db
+    .select({
+      qrisUrl: qrisCharges.qrisUrl,
+      grossAmount: qrisCharges.grossAmount,
+      status: qrisCharges.status,
+    })
+    .from(qrisCharges)
+    .where(eq(qrisCharges.invoiceId, result.value.id))
+    .limit(1);
+
+  const qrisRow = qrisRows[0] ?? null;
+
   // Read the app URL from the public env at build/render time. We import it
   // here (server component) so the client component doesn't need to access
   // process.env directly.
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-  const initialInvoice = toCheckoutInvoice(result.value, appUrl);
+  const initialInvoice = toCheckoutInvoice(result.value, appUrl, qrisRow);
 
   return <CheckoutClient initialInvoice={initialInvoice} />;
 }

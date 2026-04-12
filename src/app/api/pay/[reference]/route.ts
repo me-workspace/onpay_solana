@@ -17,9 +17,12 @@ import { publicEnv } from "@/config/env";
 import type { Invoice } from "@/domain/entities/invoice";
 import { formatMoney } from "@/domain/value-objects/money";
 import { parseInvoiceReference } from "@/domain/value-objects/reference";
+import { eq } from "drizzle-orm";
+
 import { getDb } from "@/infrastructure/db/client";
 import { createInvoiceRepository } from "@/infrastructure/db/invoice-repo";
 import { createPaymentRepository } from "@/infrastructure/db/payment-repo";
+import { qrisCharges } from "@/infrastructure/db/schema";
 import { createSolanaClient } from "@/infrastructure/solana/client";
 import { apiError } from "@/lib/api-error";
 import { clientKeyFromRequest, enforceRateLimit, withErrorHandler } from "@/lib/http";
@@ -28,6 +31,12 @@ import { buildPaymentUrl } from "@/lib/solana-pay-url";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+type QrisResponseField = {
+  readonly qrisUrl: string;
+  readonly grossAmountIdr: number;
+  readonly status: string;
+} | null;
 
 type PublicInvoiceResponse = {
   readonly id: string;
@@ -44,10 +53,11 @@ type PublicInvoiceResponse = {
   readonly expiresAt: string;
   readonly createdAt: string;
   readonly paymentUrl: string;
+  readonly qris?: QrisResponseField;
 };
 
 /** Map a domain Invoice to the public response shape (no merchantId). */
-function toPublicResponse(invoice: Invoice): PublicInvoiceResponse {
+function toPublicResponse(invoice: Invoice, qris?: QrisResponseField): PublicInvoiceResponse {
   return {
     id: invoice.id,
     reference: invoice.reference,
@@ -68,6 +78,7 @@ function toPublicResponse(invoice: Invoice): PublicInvoiceResponse {
       label: invoice.label ?? undefined,
       message: invoice.memo ?? undefined,
     }),
+    ...(qris !== undefined ? { qris } : {}),
   };
 }
 
@@ -107,6 +118,27 @@ export const GET = withErrorHandler(
       });
     }
 
-    return NextResponse.json(toPublicResponse(confirmed.value), { status: 200 });
+    // Look up any associated QRIS charge.
+    let qrisField: QrisResponseField | undefined;
+    const qrisRows = await db
+      .select({
+        qrisUrl: qrisCharges.qrisUrl,
+        grossAmount: qrisCharges.grossAmount,
+        status: qrisCharges.status,
+      })
+      .from(qrisCharges)
+      .where(eq(qrisCharges.invoiceId, confirmed.value.id))
+      .limit(1);
+
+    const qrisRow = qrisRows[0];
+    if (qrisRow !== undefined) {
+      qrisField = {
+        qrisUrl: qrisRow.qrisUrl,
+        grossAmountIdr: qrisRow.grossAmount,
+        status: qrisRow.status,
+      };
+    }
+
+    return NextResponse.json(toPublicResponse(confirmed.value, qrisField), { status: 200 });
   },
 );
