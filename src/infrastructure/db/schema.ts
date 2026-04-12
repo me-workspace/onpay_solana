@@ -132,6 +132,18 @@ export const paymentsRelations = relations(payments, ({ one }) => ({
 }));
 
 // ---------------------------------------------------------------------------
+// Revoked Sessions
+// ---------------------------------------------------------------------------
+export const revokedSessions = pgTable("revoked_sessions", {
+  /** JWT ID (`jti` claim) — the primary key. */
+  jti: text("jti").primaryKey(),
+  /** When the original session JWT expires. Used to garbage-collect stale rows. */
+  expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }).notNull(),
+  /** When the revocation was created. */
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+});
+
+// ---------------------------------------------------------------------------
 // Idempotency Keys
 // ---------------------------------------------------------------------------
 export const idempotencyKeys = pgTable(

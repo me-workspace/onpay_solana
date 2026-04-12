@@ -16,6 +16,8 @@
  * means we don't need Redis or a nonces table — the whole auth flow
  * scales horizontally and recovers cleanly from a restart.
  */
+import { randomUUID } from "node:crypto";
+
 import { SignJWT, jwtVerify, type JWTPayload } from "jose";
 
 import { serverEnv } from "@/config/env.server";
@@ -69,14 +71,18 @@ export async function verifyChallenge(jwt: string): Promise<ChallengePayload> {
 
 export type SessionPayload = {
   readonly wallet: string;
+  /** Unique token ID for revocation tracking. */
+  readonly jti: string;
 };
 
 /** Issue a session JWT after a successful signature verification. */
-export async function signSession(payload: SessionPayload): Promise<string> {
+export async function signSession(payload: Omit<SessionPayload, "jti">): Promise<string> {
+  const jti = randomUUID();
   return new SignJWT({ ...payload, typ: SESSION_TYP })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuer(ISSUER)
     .setIssuedAt()
+    .setJti(jti)
     .setExpirationTime(`${String(serverEnv.SESSION_TTL_SECONDS)}s`)
     .sign(getSecretKey());
 }
@@ -91,7 +97,8 @@ export async function verifySession(jwt: string): Promise<SessionPayload | null>
     const { payload } = await jwtVerify(jwt, getSecretKey(), { issuer: ISSUER });
     if (payload.typ !== SESSION_TYP) return null;
     if (typeof payload.wallet !== "string") return null;
-    return { wallet: payload.wallet };
+    if (typeof payload.jti !== "string") return null;
+    return { wallet: payload.wallet, jti: payload.jti };
   } catch {
     return null;
   }

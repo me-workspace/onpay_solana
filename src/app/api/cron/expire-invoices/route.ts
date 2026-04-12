@@ -15,9 +15,12 @@
  */
 import { NextResponse, type NextRequest } from "next/server";
 
+import { lt } from "drizzle-orm";
+
 import { serverEnv } from "@/config/env.server";
 import { getDb } from "@/infrastructure/db/client";
 import { createInvoiceRepository } from "@/infrastructure/db/invoice-repo";
+import { revokedSessions } from "@/infrastructure/db/schema";
 import { apiError } from "@/lib/api-error";
 import { withErrorHandler } from "@/lib/http";
 import { cleanupExpiredIdempotencyKeys } from "@/lib/idempotency";
@@ -29,6 +32,7 @@ export const dynamic = "force-dynamic";
 type Response = {
   readonly expired: number;
   readonly idempotencyKeysCleanedUp: number;
+  readonly revokedSessionsCleanedUp: number;
   readonly at: string;
 };
 
@@ -63,11 +67,27 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     log.warn({ err: cause }, "failed to clean up idempotency keys (non-fatal)");
   }
 
-  log.info({ expired: result.value, idempotencyKeysCleanedUp }, "expiration sweep complete");
+  // Clean up expired revoked sessions.
+  let revokedSessionsCleanedUp = 0;
+  try {
+    const deleted = await db
+      .delete(revokedSessions)
+      .where(lt(revokedSessions.expiresAt, now))
+      .returning({ jti: revokedSessions.jti });
+    revokedSessionsCleanedUp = deleted.length;
+  } catch (cause: unknown) {
+    log.warn({ err: cause }, "failed to clean up revoked sessions (non-fatal)");
+  }
+
+  log.info(
+    { expired: result.value, idempotencyKeysCleanedUp, revokedSessionsCleanedUp },
+    "expiration sweep complete",
+  );
 
   const body: Response = {
     expired: result.value,
     idempotencyKeysCleanedUp,
+    revokedSessionsCleanedUp,
     at: now.toISOString(),
   };
   return NextResponse.json(body, { status: 200 });

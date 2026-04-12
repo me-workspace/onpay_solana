@@ -40,6 +40,7 @@ import {
 } from "@/lib/http";
 import { logger } from "@/lib/logger";
 import { txRateLimiter } from "@/lib/rate-limit";
+import { isWalletSanctioned } from "@/lib/sanctions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -126,6 +127,15 @@ export const POST = withErrorHandler(
       route: "POST /api/tx/[reference]",
       reference: referenceResult.value,
     });
+
+    // 0. OFAC sanctions screening — block before building any transaction.
+    if (isWalletSanctioned(body.account)) {
+      log.warn({ buyerWallet: body.account }, "BLOCKED: buyer wallet is on OFAC sanctions list");
+      throw apiError(
+        "FORBIDDEN",
+        "This wallet address is restricted and cannot make payments through OnPay.",
+      );
+    }
 
     // 1. Load the invoice.
     const db = getDb();
