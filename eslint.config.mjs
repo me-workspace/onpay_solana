@@ -22,6 +22,7 @@ export default tseslint.config(
       "next-env.d.ts",
       "docs/**",
       "supabase/**",
+      "packages/**",
       "*.config.{js,mjs,cjs}",
       "*.config.ts",
     ],
